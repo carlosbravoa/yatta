@@ -1,6 +1,6 @@
 {
   "name": "yatta",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Yet Another Text-based TODO App",
   "type": "module",
   "scripts": {

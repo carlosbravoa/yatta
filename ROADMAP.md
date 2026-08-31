@@ -155,6 +155,9 @@ nothing about it - but it is a hack, and it is not currently done.
 
 ## Done
 
+- **2026-08-31** — 0.1.1: list view reflowed — wider column, and rows are
+  rules-and-padding rather than individual cards.
+
 - **2026-08-31** — Renamed to yatta (やった, "did it!"), MIT licensed.
 - **2026-08-31** — Task detail panel is resizable (drag, arrow keys, or
   double-click to reset); the width persists.

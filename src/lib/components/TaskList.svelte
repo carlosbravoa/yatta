@@ -73,7 +73,11 @@
   .rows {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+  }
+  /* One hairline between adjacent tasks. Inset to the row's text so it reads
+     as a list rule, not a container edge. */
+  .rows > div + div {
+    border-top: 1px solid var(--border);
   }
 
   header {

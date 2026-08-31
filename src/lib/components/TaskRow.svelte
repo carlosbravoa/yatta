@@ -96,30 +96,24 @@
 </div>
 
 <style>
+  /* A row, not a card. The airiness comes from generous internal padding and
+     a hairline rule (drawn by TaskList between siblings) rather than from a
+     border, a shadow and a gap around every task. */
   .row {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 11px;
-    padding: 9px 13px 9px 15px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    overflow: hidden;
-    transition:
-      transform 130ms var(--ease),
-      box-shadow 130ms var(--ease),
-      border-color 130ms var(--ease),
-      opacity 200ms var(--ease);
+    gap: 12px;
+    padding: 11px 14px 11px 18px;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    transition: background 110ms var(--ease), opacity 200ms var(--ease);
   }
   .row:hover {
-    border-color: var(--border-strong);
-    box-shadow: var(--shadow);
-    transform: translateY(-1px);
+    background: var(--surface);
   }
   .row.selected {
-    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    background: var(--accent-soft);
   }
   .row.done {
     opacity: 0.52;
@@ -128,15 +122,19 @@
     opacity: 0.8;
   }
 
-  /* Priority reads as a colour stripe rather than a word, so scanning the
-     list is a glance and not a read. */
+  /* Priority reads as a colour mark rather than a word, so scanning the list
+     is a glance and not a read. A short centred bar rather than a full-height
+     edge stripe: without a card around it, an edge-to-edge rule would look
+     like a fragment of a border. */
   .pbar {
     position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
+    left: 5px;
+    top: 50%;
+    transform: translateY(-50%);
     width: 3px;
-    background: var(--p-none);
+    height: 18px;
+    border-radius: 99px;
+    background: transparent;
   }
   .pbar[data-p="urgent"] { background: var(--p-urgent); }
   .pbar[data-p="high"]   { background: var(--p-high); }

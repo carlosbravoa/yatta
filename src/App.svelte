@@ -152,7 +152,7 @@
   <Sidebar />
 
   <main>
-    <div class="content" style={store.settings.layout === "board" ? "--content-max: 1200px" : ""}>
+    <div class="content" style={store.settings.layout === "board" ? "--content-max: 1500px" : ""}>
       <TopBar bind:this={topbar} />
       <QuickAdd bind:this={quickadd} />
 
@@ -215,7 +215,7 @@
   }
 
   .content {
-    max-width: var(--content-max, 780px);
+    max-width: var(--content-max, 1240px);
     margin: 0 auto;
     padding: 22px 26px 0;
     display: flex;

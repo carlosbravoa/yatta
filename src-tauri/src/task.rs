@@ -442,10 +442,24 @@ fn yaml_scalar(v: &str) -> String {
     }
 }
 
+/// Collapse anything that would break a one-line YAML scalar.
+///
+/// The frontmatter parser is line-based, so a raw newline inside `title:`
+/// would truncate the title and leave the remainder as junk keys. A title is
+/// conceptually a single line, so folding whitespace is lossless in practice
+/// and strictly safer than trusting the input.
+fn single_line(value: &str) -> String {
+    let folded: String = value
+        .chars()
+        .map(|c| if c == '\n' || c == '\r' || c == '\t' { ' ' } else { c })
+        .collect();
+    folded.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 pub fn render_task(task: &Task) -> String {
     let mut s = String::from("---\n");
     s.push_str(&format!("id: {}\n", yaml_scalar(&task.id)));
-    s.push_str(&format!("title: {}\n", yaml_scalar(&task.title)));
+    s.push_str(&format!("title: {}\n", yaml_scalar(&single_line(&task.title))));
     s.push_str(&format!("status: {}\n", task.status.as_str()));
     s.push_str(&format!("priority: {}\n", task.priority.as_str()));
     if let Some(due) = task.due.as_deref().filter(|d| !d.is_empty()) {
@@ -572,6 +586,31 @@ mod tests {
 
         t.title = "2026".into();
         assert!(render_task(&t).contains("title: \"2026\"\n"), "a bare number would parse as one");
+    }
+
+    #[test]
+    fn a_newline_in_a_title_cannot_corrupt_the_frontmatter() {
+        // The parser is line-based; a raw newline would truncate the title and
+        // turn the remainder into junk keys.
+        let mut t = Task::new("First line\nsecond line".into());
+        t.priority = Priority::High;
+
+        let rendered = render_task(&t);
+        assert_eq!(
+            rendered.lines().filter(|l| l.starts_with("title:")).count(),
+            1,
+            "title occupies exactly one line"
+        );
+
+        let parsed = parse_task(&rendered, "x.md");
+        assert_eq!(parsed.title, "First line second line");
+        assert_eq!(parsed.priority, Priority::High, "later keys still parse");
+    }
+
+    #[test]
+    fn folds_runs_of_whitespace_in_a_title() {
+        let t = Task::new("  spaced   out\ttitle  ".into());
+        assert!(render_task(&t).contains("title: spaced out title\n"));
     }
 
     #[test]

@@ -26,6 +26,7 @@
   // svelte-ignore state_referenced_locally
   let dueText = $state(task.due ? formatLong(task.due) : "");
   let tagInput = $state("");
+  let titleEl = $state<HTMLTextAreaElement | undefined>();
   /* Open straight into preview when the description is a checklist: the point
      of those boxes is to tick them, and raw `- [ ]` source cannot be. */
   // svelte-ignore state_referenced_locally
@@ -131,6 +132,44 @@
           .slice(0, 5)
       : []
   );
+
+  /* Grow the title box to fit its content.
+   *
+   *  CSS `field-sizing: content` would do this natively, but WebKitGTK does
+   *  not implement it, so on Linux the box stayed one row tall and clipped the
+   *  title -- the one field that must never be cut off. */
+  function autogrow() {
+    const el = titleEl;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }
+
+  // Runs after the DOM updates, so it also sizes correctly on open and
+  // whenever the title changes from elsewhere.
+  $effect(() => {
+    draft.title;
+    autogrow();
+  });
+
+  /** A title is a single line by definition: the frontmatter stores it as a
+   *  YAML scalar, which cannot hold a raw newline. Wrap visually, never
+   *  actually break. */
+  function onTitleInput() {
+    if (/[\r\n]/.test(draft.title)) {
+      draft.title = draft.title.replace(/[\r\n]+/g, " ");
+    }
+    autogrow();
+    scheduleSave();
+  }
+
+  function titleKeydown(event: KeyboardEvent) {
+    if (event.key === "Enter") {
+      // Commit rather than insert a newline.
+      event.preventDefault();
+      (event.currentTarget as HTMLTextAreaElement).blur();
+    }
+  }
 
   function scheduleSave() {
     clearTimeout(saveTimer);
@@ -311,8 +350,10 @@
 
     <textarea
       class="title"
+      bind:this={titleEl}
       bind:value={draft.title}
-      oninput={scheduleSave}
+      oninput={onTitleInput}
+      onkeydown={titleKeydown}
       onblur={flush}
       rows="1"
       placeholder="Task title"
@@ -548,10 +589,13 @@
   .title {
     font-size: 20px;
     font-weight: 650;
-    line-height: 1.3;
+    line-height: 1.35;
     letter-spacing: -0.015em;
-    field-sizing: content;
-    min-height: 1.3em;
+    /* Height is driven by autogrow() above, not by `field-sizing`, which
+       WebKitGTK does not support. overflow:hidden stops a scrollbar flashing
+       during the measure-then-set step. */
+    overflow: hidden;
+    min-height: 1.35em;
   }
   .title::placeholder { color: var(--text-faint); }
 

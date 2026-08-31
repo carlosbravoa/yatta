@@ -50,7 +50,7 @@
         </defs>
         <rect width="24" height="24" rx="6" fill="url(#ob-grad)" />
         <path
-          d="M6.6 12.4 10 15.8l7-7.6"
+          d="M5.8 12.5 10.1 16.8 19.2 5.6"
           fill="none"
           stroke="#fff"
           stroke-width="2.2"

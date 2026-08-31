@@ -1,0 +1,16 @@
+# Local-only working notes — never published.
+CLAUDE.md
+.claude/
+
+# Build output
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+*.snap
+
+# Intermediate packaging artefact; SNAP_PACKAGING.md is the documented version.
+snap-analysis.json
+
+*.local
+.DS_Store

@@ -1,0 +1,160 @@
+name: yatta
+title: yatta
+base: core24
+version: '0.1.0'
+summary: Yet Another Text-based TODO App - tasks as markdown files
+description: |
+  yatta - Yet Another Text-based TODO App.
+  Also the word in the middle of that: yatta, Japanese for "did it!"
+
+  yatta keeps every task as a plain markdown file with YAML frontmatter in a
+  folder you own, so your text editor, your git history and any AI agent can
+  all read and write your tasks without going through an API.
+
+  Quick add parses what you type: "Send the report tomorrow !high #work"
+  becomes a task with a deadline, a priority and a tag. Tasks can be viewed as
+  a list or as a kanban board, grouped by tag, priority or deadline, and
+  imported in bulk one task per line. The vault folder is watched, so edits
+  made in another editor - or by an agent - show up immediately.
+
+  On first run yatta asks where you would like your tasks kept, and creates
+  nothing until you have chosen.
+
+license: MIT
+# `contact` points at the issue tracker rather than an email address, so
+# publishing the snap does not publish a personal inbox.
+contact: https://github.com/carlosbravoa/yatta/issues
+issues: https://github.com/carlosbravoa/yatta/issues
+source-code: https://github.com/carlosbravoa/yatta
+website: https://github.com/carlosbravoa/yatta
+grade: stable
+confinement: strict
+
+apps:
+  yatta:
+    command: bin/yatta
+    extensions:
+      - gnome
+    # The gnome extension already supplies desktop, desktop-legacy, gsettings,
+    # opengl, wayland and x11, so only the extras are declared here.
+    plugs:
+      # The vault is a folder of markdown files in the user's home. This is the
+      # app's entire data store.
+      - home
+      # The vault folder is user-selectable, so it may legitimately live on an
+      # external drive. Requires a manual `snap connect`.
+      - removable-media
+      # libayatana-appindicator3 tray icon registration.
+      - unity7
+      # WebKitGTK starts a network process; also required by the planned
+      # "hand this task to an AI agent" integration.
+      - network
+    environment:
+      # git is bundled (see stage-packages) rather than exec'd from the host,
+      # which is what keeps this snap in strict confinement. It needs to be
+      # told where its own helpers and templates live inside the snap.
+      GIT_EXEC_PATH: $SNAP/usr/lib/git-core
+      GIT_TEMPLATE_DIR: $SNAP/usr/share/git-core/templates
+      # The gnome extension sets GTK_USE_PORTAL=1, which makes GLib assume a
+      # Flatpak-style sandbox and select its portal-backed proxy resolver.
+      # snapd's portal does not serve org.freedesktop.portal.ProxyResolver to
+      # non-Flatpak apps, so every lookup is refused with NotAllowed and GIO
+      # prints a GDBus warning on startup.
+      #
+      # Pin the GSettings-backed resolver instead. This keeps the portal file
+      # chooser (which the vault picker needs) while reading proxy settings
+      # from the desktop, so users behind a proxy still work. `dummy` would
+      # also silence it, but by disabling proxy support outright.
+      GIO_USE_PROXY_RESOLVER: gnome
+      # The session exports GTK_MODULES=gail:atk-bridge, legacy accessibility
+      # modules that GTK3 now provides natively - it says so itself and asks
+      # not to be given them ("Not loading module atk-bridge ... Please try to
+      # not load it"), once per process. Clearing the variable drops that.
+      #
+      # Nothing is lost: accessibility comes from GTK's built-in ATK bridge,
+      # and host GTK modules are outside the sandbox and unloadable anyway.
+      GTK_MODULES: ''
+
+parts:
+  yatta:
+    # An explicit `nil` build rather than the `rust` plugin. Two reasons:
+    #   1. The plugin's environment validation runs `rustup dump-testament`,
+    #      which fails against the rustup snap it installs itself.
+    #   2. This is a two-toolchain build whose ordering the plugin cannot
+    #      express anyway (see below), so most of the work would be an
+    #      override-build regardless.
+    plugin: nil
+    source: .
+
+    build-snaps:
+      # Node 22 is not available as a noble deb (noble ships 18.19) and Vite 6
+      # requires >= 20.19 / 22.12, so this is one of the cases where a
+      # build-snap is the only option.
+      - node/22/stable
+
+    build-packages:
+      - build-essential
+      - pkg-config
+      - curl
+      - ca-certificates
+      - wget
+      - file
+      - git
+      - libssl-dev
+      - libxdo-dev
+      # Headers to link against. The matching runtime libraries are NOT staged:
+      # the gnome-46-2404 platform snap already provides libwebkit2gtk-4.1,
+      # libjavascriptcoregtk-4.1, libgtk-3, libsoup-3.0, librsvg-2 and
+      # libayatana-appindicator3, so staging them would only add ~80MB and risk
+      # version skew against the platform's libsoup.
+      - libwebkit2gtk-4.1-dev
+      - libayatana-appindicator3-dev
+      - librsvg2-dev
+
+    stage-packages:
+      # Bundled so the optional auto-commit feature works under confinement.
+      # One known binary, not arbitrary host tools - this is the difference
+      # between strict and classic here.
+      - git
+
+    override-build: |
+      set -eux
+
+      # Cargo.toml requires Rust >= 1.77 and noble's archive rustc is 1.75, so
+      # the toolchain is fetched rather than installed from the archive. Kept
+      # inside the part build dir so nothing leaks between builds.
+      export RUSTUP_HOME="${CRAFT_PART_BUILD}/.rustup"
+      export CARGO_HOME="${CRAFT_PART_BUILD}/.cargo"
+      # The part build directory persists between snapcraft runs, so on a
+      # rebuild the toolchain is already here and rustup refuses to reinstall
+      # ("cannot install while Rust is installed"). Install only when absent.
+      #
+      # Test for OUR rustc by path, not `command -v rustc`: the build container
+      # can still carry a rustup snap from an earlier configuration, and that
+      # binary is both the wrong toolchain and unrunnable here (it resolves
+      # libc against the gnome SDK and dies on a GLIBC_PRIVATE symbol).
+      export PATH="${CARGO_HOME}/bin:${PATH}"
+      if [ ! -x "${CARGO_HOME}/bin/rustc" ]; then
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+          | sh -s -- -y --no-modify-path --profile minimal --default-toolchain stable
+      fi
+      "${CARGO_HOME}/bin/rustc" --version
+
+      npm ci
+
+      # Build through the Tauri CLI rather than calling cargo directly.
+      #
+      # Tauri decides dev-vs-production solely from the `custom-protocol` Cargo
+      # feature (`let dev = !custom_protocol` in tauri's build.rs) - not from
+      # --release. A hand-rolled `cargo build --release` omits it, producing a
+      # binary that embeds no frontend and tries to load the dev server at
+      # runtime: a white window reading "Could not connect to localhost".
+      #
+      # The CLI passes that feature, and runs beforeBuildCommand (vite) first
+      # so the frontend exists before tauri-build embeds it. Letting it own
+      # both concerns keeps this build identical to `npm run app:build` on a
+      # developer's machine, which is what stops the two from silently
+      # diverging again.
+      npm run tauri -- build --no-bundle
+
+      install -Dm755 src-tauri/target/release/yatta "${CRAFT_PART_INSTALL}/bin/yatta"

@@ -1,0 +1,48 @@
+[package]
+name = "yatta"
+version = "0.1.0"
+description = "Yet Another Text-based TODO App"
+edition = "2021"
+license = "MIT"
+authors = ["Carlos Bravo"]
+rust-version = "1.77"
+
+[lib]
+name = "yatta_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-notification = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+notify = "6"
+
+# Optional desktop integration. Kept behind a feature flag so the portable
+# build (`--no-default-features`) has zero native tray/hotkey dependencies.
+tauri-plugin-global-shortcut = { version = "2", optional = true }
+
+[features]
+default = ["desktop-integration"]
+
+# Selects the embedded-asset custom protocol instead of loading the frontend
+# from `devUrl`. Tauri decides dev-vs-production solely from this feature
+# (`let dev = !custom_protocol` in tauri's build.rs) -- NOT from --release or
+# debug_assertions. The Tauri CLI passes it for `tauri build`; a plain
+# `cargo build --release` without it produces a binary that ships no frontend
+# and tries to reach the dev server at runtime. DO NOT REMOVE.
+custom-protocol = ["tauri/custom-protocol"]
+desktop-integration = ["tauri/tray-icon", "dep:tauri-plugin-global-shortcut"]
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

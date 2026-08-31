@@ -1,0 +1,32 @@
+{
+  "name": "yatta",
+  "version": "0.1.0",
+  "description": "Yet Another Text-based TODO App",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "svelte-check --tsconfig ./tsconfig.json && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "app": "tauri dev",
+    "app:build": "tauri build",
+    "app:build:portable": "tauri build --no-default-features",
+    "test": "esbuild src/lib/quickadd.test.ts src/lib/importer.test.ts src/lib/checklist.test.ts src/lib/share.test.ts --bundle --platform=node --format=cjs --outdir=node_modules/.cache/tests --log-level=warning && node node_modules/.cache/tests/quickadd.test.js && node node_modules/.cache/tests/importer.test.js && node node_modules/.cache/tests/checklist.test.js && node node_modules/.cache/tests/share.test.js"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2",
+    "@tauri-apps/plugin-opener": "^2",
+    "marked": "^12"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^5",
+    "@tauri-apps/cli": "^2",
+    "svelte": "^5",
+    "svelte-check": "^4",
+    "typescript": "^5",
+    "vite": "^6"
+  },
+  "license": "MIT",
+  "author": "Carlos Bravo"
+}

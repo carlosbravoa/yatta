@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=yatta
+GenericName=Todo List
+Comment=A fresh, markdown-backed todo list
+Exec=yatta
+Icon=${SNAP}/meta/gui/yatta.png
+Terminal=false
+StartupNotify=true
+StartupWMClass=yatta
+Categories=Utility;Office;ProjectManagement;
+Keywords=todo;task;tasks;markdown;productivity;kanban;

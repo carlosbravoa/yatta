@@ -1,0 +1,88 @@
+//! Tray icon and global hotkey. Compiled only with the `desktop-integration`
+//! feature, and every step degrades to a warning rather than an error: a
+//! missing tray daemon or a compositor that refuses global shortcuts must not
+//! stop the app from opening.
+
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::tray::{TrayIconBuilder, TrayIconEvent};
+use tauri::{AppHandle, Emitter, Manager};
+
+pub fn focus_main(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
+pub fn setup_tray(app: &AppHandle) {
+    if let Err(e) = build_tray(app) {
+        eprintln!("yatta: tray unavailable ({e}); continuing without it");
+    }
+}
+
+fn build_tray(app: &AppHandle) -> tauri::Result<()> {
+    let open = MenuItem::with_id(app, "open", "Open yatta", true, None::<&str>)?;
+    let add = MenuItem::with_id(app, "quickadd", "Quick add task…", true, None::<&str>)?;
+    let separator = PredefinedMenuItem::separator(app)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&open, &add, &separator, &quit])?;
+
+    let mut builder = TrayIconBuilder::with_id("yatta-tray")
+        .menu(&menu)
+        .tooltip("yatta")
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "open" => focus_main(app),
+            "quickadd" => {
+                focus_main(app);
+                let _ = app.emit("focus-quickadd", ());
+            }
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click { .. } = event {
+                focus_main(tray.app_handle());
+            }
+        });
+
+    if let Some(icon) = app.default_window_icon() {
+        builder = builder.icon(icon.clone());
+    }
+
+    builder.build(app)?;
+    Ok(())
+}
+
+/// Register the quick-add hotkey, replacing any previously registered one.
+///
+/// Global shortcuts are an X11 feature; under a Wayland session the compositor
+/// owns them and registration will fail. That's reported and then ignored.
+pub fn register_hotkey(app: &AppHandle, accelerator: &str) {
+    use tauri_plugin_global_shortcut::GlobalShortcutExt;
+
+    let shortcuts = app.global_shortcut();
+    let _ = shortcuts.unregister_all();
+
+    if accelerator.trim().is_empty() {
+        return;
+    }
+
+    let handle = app.clone();
+    let result = shortcuts.on_shortcut(accelerator, move |_app, _shortcut, event| {
+        // Fire on press only; otherwise the window toggles twice per keypress.
+        if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+            focus_main(&handle);
+            let _ = handle.emit("focus-quickadd", ());
+        }
+    });
+
+    if let Err(e) = result {
+        eprintln!(
+            "yatta: could not register the global hotkey '{accelerator}' ({e}). \
+             Wayland sessions reserve global shortcuts for the compositor; \
+             bind one there to `yatta` instead."
+        );
+    }
+}

@@ -119,6 +119,14 @@
     >
       <Icon name="columns" size={14} />
     </button>
+    <button
+      class:on={store.settings.layout === "calendar"}
+      onclick={() => store.updateSettings({ layout: "calendar" })}
+      title="Calendar view"
+      aria-label="Calendar view"
+    >
+      <Icon name="calendar" size={14} />
+    </button>
   </div>
 
   <details class="menu" bind:this={menu} onfocusout={(e) => {

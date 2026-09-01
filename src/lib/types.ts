@@ -24,7 +24,7 @@ export interface Settings {
   vault_path: string;
   theme: "system" | "light" | "dark";
   group_by: "none" | "tag" | "priority" | "due";
-  layout: "list" | "board";
+  layout: "list" | "board" | "calendar";
   sort_by: "manual" | "due" | "priority" | "created" | "title";
   show_done: boolean;
   git_autocommit: boolean;

@@ -1,6 +1,6 @@
 {
   "name": "yatta",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Yet Another Text-based TODO App",
   "type": "module",
   "scripts": {
@@ -11,7 +11,7 @@
     "app": "tauri dev",
     "app:build": "tauri build",
     "app:build:portable": "tauri build --no-default-features",
-    "test": "esbuild src/lib/quickadd.test.ts src/lib/importer.test.ts src/lib/checklist.test.ts src/lib/share.test.ts --bundle --platform=node --format=cjs --outdir=node_modules/.cache/tests --log-level=warning && node node_modules/.cache/tests/quickadd.test.js && node node_modules/.cache/tests/importer.test.js && node node_modules/.cache/tests/checklist.test.js && node node_modules/.cache/tests/share.test.js"
+    "test": "esbuild src/lib/quickadd.test.ts src/lib/importer.test.ts src/lib/checklist.test.ts src/lib/share.test.ts src/lib/calendar.test.ts --bundle --platform=node --format=cjs --outdir=node_modules/.cache/tests --log-level=warning && node node_modules/.cache/tests/quickadd.test.js && node node_modules/.cache/tests/importer.test.js && node node_modules/.cache/tests/checklist.test.js && node node_modules/.cache/tests/share.test.js && node node_modules/.cache/tests/calendar.test.js"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

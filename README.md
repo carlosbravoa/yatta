@@ -114,6 +114,11 @@ dependency, and git auto-commit shells out to whatever `git` is on `PATH`.
   `!high`, `#tag` and dates work per line. `- [x]` imports as already done,
   `# Headings` become tags, and indented lines attach as the description. A
   multi-line paste into the quick-add box opens the importer automatically.
+- **Calendar.** A month grid answering two questions: what is due on a day
+  ahead, and — the one that is hard to answer anywhere else — what you actually
+  finished on a day behind. Every task file already records `completed:`, so the
+  history is real rather than reconstructed. Archived tasks still count, because
+  archiving is only a file move and tidying up should not erase what you did.
 - **Share this view.** One click copies the list you are looking at as markdown,
   in the same `@date !priority #tag` syntax quick add accepts — so the person
   you send it to can paste it straight into their importer and get the tasks,

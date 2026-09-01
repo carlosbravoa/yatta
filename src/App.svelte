@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import { fly } from "svelte/transition";
   import Board from "./lib/components/Board.svelte";
+  import Calendar from "./lib/components/Calendar.svelte";
   import Icon from "./lib/components/Icon.svelte";
   import ImportPanel from "./lib/components/ImportPanel.svelte";
   import Onboarding from "./lib/components/Onboarding.svelte";
@@ -170,6 +171,8 @@
         <div class="loading">Loading your tasks…</div>
       {:else if store.settings.layout === "board"}
         <Board />
+      {:else if store.settings.layout === "calendar"}
+        <Calendar />
       {:else}
         <TaskList />
       {/if}

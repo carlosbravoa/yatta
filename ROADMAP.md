@@ -155,6 +155,11 @@ nothing about it - but it is a hack, and it is not currently done.
 
 ## Done
 
+- **2026-08-31** — 0.2.0: calendar view. Month grid of what is due ahead and
+  what was completed behind, archived tasks included.
+- **2026-08-31** — Long task titles wrap in the details panel instead of being
+  clipped, with newlines folded so they cannot corrupt the frontmatter.
+
 - **2026-08-31** — 0.1.1: list view reflowed — wider column, and rows are
   rules-and-padding rather than individual cards.
 

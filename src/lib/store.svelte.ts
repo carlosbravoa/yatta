@@ -193,6 +193,11 @@ class Store {
 
   visible = $derived.by(() => this.arrange(this.pool(false)));
 
+  /** Every task the search box matches -- archived and completed included.
+   *  The calendar narrows by date rather than by the sidebar view, and its
+   *  whole point is the record of finished work, so nothing is excluded. */
+  matching = $derived(this.tasks.filter((t) => matchesQuery(t, this.query)));
+
   boardColumns = $derived.by((): Column[] => {
     const tasks = this.arrange(this.pool(true));
     return [

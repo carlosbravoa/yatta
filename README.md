@@ -114,6 +114,10 @@ dependency, and git auto-commit shells out to whatever `git` is on `PATH`.
   `!high`, `#tag` and dates work per line. `- [x]` imports as already done,
   `# Headings` become tags, and indented lines attach as the description. A
   multi-line paste into the quick-add box opens the importer automatically.
+- **Quick-add popup.** The tray item and the global hotkey open a small
+  always-on-top window with one field, rather than trying to raise the main
+  window — which Wayland does not permit a client to do for itself. Capture
+  works whether the app is minimised, on another workspace, or closed.
 - **Calendar.** A month grid answering two questions: what is due on a day
   ahead, and — the one that is hard to answer anywhere else — what you actually
   finished on a day behind. Every task file already records `completed:`, so the

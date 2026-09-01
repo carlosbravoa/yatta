@@ -98,6 +98,15 @@ html, body, #app {
   margin: 0;
 }
 
+/* The quick-add popup is a transparent, undecorated window: the rounded card
+   inside it draws the only visible surface, so the page itself must not paint
+   a background behind it. */
+:root[data-window="quickadd"],
+:root[data-window="quickadd"] body {
+  background: transparent;
+  overflow: hidden;
+}
+
 body {
   font-family: "Inter", "Inter Variable", ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, "Ubuntu", "Helvetica Neue", sans-serif;

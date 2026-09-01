@@ -40,10 +40,10 @@
     store.init();
 
     const pending: Promise<UnlistenFn>[] = [
-      // Someone edited the markdown outside the app.
+      // Someone edited the markdown outside the app -- or the quick-add popup
+      // saved a task, which the file watcher deliberately ignores as our own
+      // write and so would not otherwise report.
       listen("vault-changed", () => store.reload()),
-      // Tray menu or global hotkey.
-      listen("focus-quickadd", () => quickadd?.focus()),
     ];
 
     return () => {

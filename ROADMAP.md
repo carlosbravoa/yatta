@@ -155,6 +155,9 @@ nothing about it - but it is a hack, and it is not currently done.
 
 ## Done
 
+- **2026-09-01** — 0.3.0: quick-add popup window from the tray and the global
+  hotkey, replacing a menu item that duplicated "open the app".
+
 - **2026-08-31** — 0.2.0: calendar view. Month grid of what is due ahead and
   what was completed behind, archived tasks included.
 - **2026-08-31** — Long task titles wrap in the details panel instead of being

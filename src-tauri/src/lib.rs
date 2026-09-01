@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex};
 use task::{Status, Task};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
 pub struct AppState {
     // `settings` is read by the reminder scheduler as well as the commands.
@@ -34,6 +34,53 @@ impl AppState {
     fn mark_write(&self) {
         self.last_self_write
             .store(watcher::now_millis(), Ordering::Relaxed);
+    }
+}
+
+/// Open the quick-add popup: a small always-on-top window with one field.
+///
+/// This exists as a separate window rather than as "focus the main window and
+/// put the cursor in the box" because on Wayland a client cannot raise itself
+/// without an activation token, so asking the main window to come forward is
+/// simply ignored by the compositor. A newly mapped window does get focus, so
+/// capture works from the tray or the hotkey whatever the main window is doing
+/// -- minimised, on another workspace, or closed.
+pub fn open_quick_add(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("quickadd") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        return;
+    }
+
+    let built = WebviewWindowBuilder::new(
+        app,
+        "quickadd",
+        WebviewUrl::App("index.html?window=quickadd".into()),
+    )
+    .title("Quick add")
+    .inner_size(620.0, 132.0)
+    .decorations(false)
+    .transparent(true)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .resizable(false)
+    .center()
+    .build();
+
+    if let Err(e) = built {
+        eprintln!("yatta: could not open the quick-add window ({e})");
+    }
+}
+
+/// Invoked by the popup once a task is saved, so an open main window refreshes.
+/// The filesystem watcher deliberately ignores our own writes, which is exactly
+/// what would make this save invisible to the other window.
+#[tauri::command]
+fn quick_add_done(app: AppHandle) {
+    use tauri::Emitter;
+    let _ = app.emit("vault-changed", ());
+    if let Some(window) = app.get_webview_window("quickadd") {
+        let _ = window.close();
     }
 }
 
@@ -288,6 +335,7 @@ pub fn run() {
             delete_task,
             archive_done,
             absolute_path,
+            quick_add_done,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

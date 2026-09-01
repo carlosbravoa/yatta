@@ -5,7 +5,7 @@
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 
 pub fn focus_main(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
@@ -34,10 +34,8 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id().as_ref() {
             "open" => focus_main(app),
-            "quickadd" => {
-                focus_main(app);
-                let _ = app.emit("focus-quickadd", ());
-            }
+            // A real popup, not "open the app and hope it comes forward".
+            "quickadd" => crate::open_quick_add(app),
             "quit" => app.exit(0),
             _ => {}
         })
@@ -73,8 +71,7 @@ pub fn register_hotkey(app: &AppHandle, accelerator: &str) {
     let result = shortcuts.on_shortcut(accelerator, move |_app, _shortcut, event| {
         // Fire on press only; otherwise the window toggles twice per keypress.
         if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-            focus_main(&handle);
-            let _ = handle.emit("focus-quickadd", ());
+            crate::open_quick_add(&handle);
         }
     });
 

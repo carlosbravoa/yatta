@@ -30,6 +30,13 @@ website: https://github.com/carlosbravoa/yatta
 grade: stable
 confinement: strict
 
+# Without this key snapcraft only ever builds for the host architecture.
+# Nothing else in the build is architecture-specific: rustup detects aarch64
+# itself, and the node and gnome-46-2404 snaps both publish arm64.
+platforms:
+  amd64:
+  arm64:
+
 apps:
   yatta:
     command: bin/yatta

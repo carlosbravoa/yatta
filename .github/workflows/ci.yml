@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# One in-flight run per branch; a newer push makes an older run irrelevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # The Rust tests compile the tauri crate, which links against these.
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libssl-dev libxdo-dev \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - name: Parser and view tests
+        run: npm test
+
+      - name: Type-check the frontend
+        run: npx svelte-check --tsconfig ./tsconfig.json
+
+      # custom-protocol matches how the app is really built: without it the
+      # frontend is not embedded and the binary points at the dev server.
+      - name: Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --features custom-protocol
+
+  build:
+    name: Snap (${{ matrix.platform }})
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: amd64
+            runner: ubuntu-24.04
+          # Free native arm64 runners for public repositories -- a real build
+          # rather than qemu emulation, which turns a 3-minute Rust compile
+          # into the better part of an hour.
+          - platform: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: snapcore/action-build@v1
+        id: snapcraft
+        with:
+          snapcraft-args: --build-for=${{ matrix.platform }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yatta-${{ matrix.platform }}
+          path: ${{ steps.snapcraft.outputs.snap }}
+          if-no-files-found: error
+
+# Publishing is deliberately not automated. Releases go out by hand, so a merge
+# never ships to users on its own. To upload a build, download its artifact and
+# run:
+#
+#   snapcraft upload ./yatta_<version>_<arch>.snap --release=edge
+#
+# If that ever should be automated, add a job using snapcore/action-publish@v1
+# with a SNAPCRAFT_STORE_CREDENTIALS secret from `snapcraft export-login`.

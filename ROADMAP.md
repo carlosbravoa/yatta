@@ -142,7 +142,6 @@ nothing about it - but it is a hack, and it is not currently done.
   stands the type promises something the code does not do.
 - **The frontend store is untested.** `quickadd`, `importer` and `checklist` have
   unit tests; the store's filtering, grouping and board logic do not.
-- **No CI.** Nothing runs `cargo test`, `npm test` and `svelte-check` on a change.
 - ~~No LICENSE file.~~ Resolved 2026-08-31: MIT.
 - **Global hotkeys do not work under Wayland.** The compositor owns shortcuts;
   this is not fixable in the app. Documented in the README.
@@ -154,6 +153,9 @@ nothing about it - but it is a hack, and it is not currently done.
 ---
 
 ## Done
+
+- **2026-09-01** — CI on GitHub Actions: tests plus native amd64 and arm64
+  snap builds on every push. Publishing stays manual.
 
 - **2026-09-01** — 0.3.0: quick-add popup window from the tray and the global
   hotkey, replacing a menu item that duplicated "open the app".

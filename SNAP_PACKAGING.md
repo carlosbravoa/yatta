@@ -25,6 +25,34 @@ dependency tree inside a fresh LXD container. Later builds reuse it.
 Never pass `--destructive-mode`. It builds on the host, pollutes it with build
 dependencies, and produces artefacts that may not reproduce.
 
+## Other architectures
+
+`snapcraft.yaml` declares both `amd64` and `arm64` under `platforms:`. Without
+that key snapcraft only ever builds for the host. Nothing else in the build is
+architecture-specific -- rustup detects `aarch64` itself, and the `node` and
+`gnome-46-2404` snaps both publish arm64.
+
+Three ways to produce an arm64 build, in rough order of effort:
+
+**CI (what this repo does).** `.github/workflows/ci.yml` builds both
+architectures on every push. GitHub's arm64 runners are free for public
+repositories, so it is a native build rather than emulation. The `.snap` files
+land as workflow artefacts; publishing is deliberately manual.
+
+**Launchpad.** `snapcraft remote-build` ships the source to Launchpad, builds
+every platform in the manifest and downloads the results. Free for open source,
+no hardware, but it needs a Launchpad account and publishes the source there
+during the build.
+
+**Locally, emulated.** `snapcraft --build-for=arm64` with qemu binfmt. No
+accounts and no network dependency, but every instruction is emulated: the Rust
+release build takes about three minutes natively and the better part of an hour
+this way. Useful to prove a change compiles, painful as a habit.
+
+> A successful arm64 build proves it compiles, not that it behaves. WebKitGTK
+> rendering and the AppIndicator tray have not been exercised on arm64 hardware.
+> Test on a real device before releasing an arm64 revision.
+
 ## Install and test
 
 Test in two stages. `devmode` disables confinement, so it tells you whether the

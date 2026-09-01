@@ -1,3 +1,4 @@
+mod autostart;
 mod git;
 mod reminders;
 mod settings;
@@ -34,6 +35,67 @@ impl AppState {
     fn mark_write(&self) {
         self.last_self_write
             .store(watcher::now_millis(), Ordering::Relaxed);
+    }
+}
+
+/// Bring the main window up, rebuilding it if it has been closed.
+///
+/// Closing to the tray genuinely closes the window rather than hiding it. GTK
+/// unmapping and remapping a toplevel leaves GNOME's server-side decorations
+/// stale -- the minimise, maximise and close buttons stop responding until
+/// something forces a reconfigure, such as maximising. A freshly built window
+/// has no such history, and it also gets focus, which a re-shown one does not
+/// reliably get on Wayland.
+pub fn show_main(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+        return;
+    }
+
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|w| w.label == "main")
+        .cloned();
+
+    match config {
+        Some(cfg) => match WebviewWindowBuilder::from_config(app, &cfg) {
+            Ok(builder) => {
+                if let Err(e) = builder.build() {
+                    eprintln!("yatta: could not reopen the main window ({e})");
+                }
+            }
+            Err(e) => eprintln!("yatta: could not reopen the main window ({e})"),
+        },
+        None => eprintln!("yatta: no main window configuration to reopen from"),
+    }
+}
+
+/// Open the About window.
+///
+/// A window rather than a panel inside the main window for the same reason the
+/// quick-add popup is one: reached from the tray, there is no reliable way to
+/// bring the main window forward on Wayland.
+pub fn open_about(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("about") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        return;
+    }
+    let built = WebviewWindowBuilder::new(app, "about", WebviewUrl::App("index.html?window=about".into()))
+        .title("About yatta")
+        .inner_size(420.0, 460.0)
+        .decorations(false)
+        .transparent(true)
+        .resizable(false)
+        .center()
+        .build();
+    if let Err(e) = built {
+        eprintln!("yatta: could not open the About window ({e})");
     }
 }
 
@@ -85,6 +147,22 @@ fn quick_add_done(app: AppHandle) {
 }
 
 #[derive(serde::Serialize)]
+pub struct AppInfo {
+    version: String,
+    /// Whether a tray icon is available, which is what makes closing to the
+    /// tray a safe thing to offer.
+    has_tray: bool,
+}
+
+#[tauri::command]
+fn app_info(app: AppHandle) -> AppInfo {
+    AppInfo {
+        version: app.package_info().version.to_string(),
+        has_tray: cfg!(feature = "desktop-integration"),
+    }
+}
+
+#[derive(serde::Serialize)]
 pub struct VaultInfo {
     path: String,
     exists: bool,
@@ -123,6 +201,12 @@ fn apply_runtime(app: &AppHandle, state: &AppState) -> Result<(), String> {
     state
         .committer
         .configure(root.clone(), settings.git_autocommit);
+
+    // Reconcile the autostart entry with the setting. A failure here is worth
+    // reporting but must not stop the rest of startup.
+    if let Err(e) = autostart::apply(settings.autostart) {
+        eprintln!("yatta: autostart: {e}");
+    }
 
     #[cfg(feature = "desktop-integration")]
     if settings.tray_enabled {
@@ -336,6 +420,7 @@ pub fn run() {
             archive_done,
             absolute_path,
             quick_add_done,
+            app_info,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -376,6 +461,25 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running yatta");
+        .build(tauri::generate_context!())
+        .expect("error while building yatta")
+        .run(|app, event| {
+            let tauri::RunEvent::ExitRequested { code, api, .. } = &event else { return };
+
+            // `code` is set when something asked to quit outright -- the tray's
+            // Quit item, or a signal. Only a window closing leaves it empty,
+            // and only that case should be held back.
+            if code.is_some() {
+                return;
+            }
+
+            let keep_running = app
+                .try_state::<AppState>()
+                .and_then(|state| state.settings.lock().ok().map(|s| s.close_to_tray && s.tray_enabled))
+                .unwrap_or(false);
+
+            if keep_running && cfg!(feature = "desktop-integration") {
+                api.prevent_exit();
+            }
+        });
 }

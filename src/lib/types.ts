@@ -31,6 +31,10 @@ export interface Settings {
   tray_enabled: boolean;
   hotkey: string;
   first_run_done: boolean;
+  /** Keep running in the tray when the window is closed. */
+  close_to_tray: boolean;
+  /** Start yatta at login via an XDG autostart entry. */
+  autostart: boolean;
   /** Width of the task detail panel, in CSS pixels. */
   detail_width: number;
   reminders_enabled: boolean;

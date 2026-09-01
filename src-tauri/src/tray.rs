@@ -5,14 +5,10 @@
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 pub fn focus_main(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.unminimize();
-        let _ = window.set_focus();
-    }
+    crate::show_main(app);
 }
 
 pub fn setup_tray(app: &AppHandle) {
@@ -25,8 +21,9 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, "open", "Open yatta", true, None::<&str>)?;
     let add = MenuItem::with_id(app, "quickadd", "Quick add task…", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
+    let about = MenuItem::with_id(app, "about", "About yatta", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open, &add, &separator, &quit])?;
+    let menu = Menu::with_items(app, &[&open, &add, &separator, &about, &quit])?;
 
     let mut builder = TrayIconBuilder::with_id("yatta-tray")
         .menu(&menu)
@@ -36,6 +33,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
             "open" => focus_main(app),
             // A real popup, not "open the app and hope it comes forward".
             "quickadd" => crate::open_quick_add(app),
+            "about" => crate::open_about(app),
             "quit" => app.exit(0),
             _ => {}
         })

@@ -102,7 +102,9 @@ html, body, #app {
    inside it draws the only visible surface, so the page itself must not paint
    a background behind it. */
 :root[data-window="quickadd"],
-:root[data-window="quickadd"] body {
+:root[data-window="quickadd"] body,
+:root[data-window="about"],
+:root[data-window="about"] body {
   background: transparent;
   overflow: hidden;
 }

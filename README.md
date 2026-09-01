@@ -114,6 +114,10 @@ dependency, and git auto-commit shells out to whatever `git` is on `PATH`.
   `!high`, `#tag` and dates work per line. `- [x]` imports as already done,
   `# Headings` become tags, and indented lines attach as the description. A
   multi-line paste into the quick-add box opens the importer automatically.
+- **Runs in the tray, and starts with your session.** Both optional. Closing the
+  window can keep yatta running and reachable from the tray, and it can add
+  itself to your login items — written to the right place whether it is a snap
+  or not.
 - **Quick-add popup.** The tray item and the global hotkey open a small
   always-on-top window with one field, rather than trying to raise the main
   window — which Wayland does not permit a client to do for itself. Capture

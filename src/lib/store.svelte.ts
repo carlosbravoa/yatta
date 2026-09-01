@@ -34,6 +34,8 @@ const DEFAULT_SETTINGS: Settings = {
   tray_enabled: true,
   hotkey: "CmdOrCtrl+Shift+Space",
   first_run_done: false,
+  close_to_tray: false,
+  autostart: false,
   detail_width: 380,
   reminders_enabled: true,
   reminder_times: ["09:00"],

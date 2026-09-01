@@ -4,7 +4,8 @@
   "description": "Permissions for the main yatta window",
   "windows": [
     "main",
-    "quickadd"
+    "quickadd",
+    "about"
   ],
   "permissions": [
     "core:default",
@@ -32,6 +33,17 @@
     "dialog:allow-open",
     "notification:default",
     "core:window:allow-close",
-    "core:window:allow-start-dragging"
+    "core:window:allow-start-dragging",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "https://github.com/carlosbravoa/yatta/*"
+        },
+        {
+          "url": "https://github.com/carlosbravoa/yatta"
+        }
+      ]
+    }
   ]
 }

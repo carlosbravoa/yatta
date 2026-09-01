@@ -1,9 +1,12 @@
 <script lang="ts">
+  import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
-  import { openPath } from "@tauri-apps/plugin-opener";
+  import { openPath, openUrl } from "@tauri-apps/plugin-opener";
   import { fade, scale } from "svelte/transition";
   import { store } from "../store.svelte";
   import Icon from "./Icon.svelte";
+
+  const REPO = "https://github.com/carlosbravoa/yatta";
 
   const THEMES = [
     ["system", "System", "circle"],
@@ -13,6 +16,13 @@
 
   // svelte-ignore state_referenced_locally
   let hotkeyDraft = $state(store.settings.hotkey);
+  let version = $state("");
+
+  $effect(() => {
+    invoke<{ version: string }>("app_info")
+      .then((info) => (version = info.version))
+      .catch(() => {});
+  });
 
   const HOURS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0"));
   const MINUTES = ["00", "15", "30", "45"];
@@ -159,6 +169,41 @@
     </section>
 
     <section>
+      <h3>Startup and window</h3>
+      <label class="row toggle">
+        <div class="text">
+          <span class="label">Start yatta when I log in</span>
+          <span class="hint">Adds a standard autostart entry; removing the toggle removes it.</span>
+        </div>
+        <input
+          type="checkbox"
+          checked={store.settings.autostart}
+          onchange={(e) => store.updateSettings({ autostart: e.currentTarget.checked })}
+        />
+      </label>
+
+      {#if store.supportsTray && store.settings.tray_enabled}
+        <label class="row toggle">
+          <div class="text">
+            <span class="label">Keep running when I close the window</span>
+            <span class="hint">
+              Closing hides yatta to the tray instead of quitting. Reopen it from the tray icon.
+            </span>
+          </div>
+          <input
+            type="checkbox"
+            checked={store.settings.close_to_tray}
+            onchange={(e) => store.updateSettings({ close_to_tray: e.currentTarget.checked })}
+          />
+        </label>
+      {:else}
+        <p class="note">
+          Closing to the tray needs the tray icon, which is switched off below.
+        </p>
+      {/if}
+    </section>
+
+    <section>
       <h3>Version history</h3>
       <label class="row toggle">
         <div class="text">
@@ -218,6 +263,25 @@
         {/if}
       </section>
     {/if}
+
+    <section class="about">
+      <h3>About</h3>
+      <div class="row">
+        <div class="text">
+          <span class="label">yatta {version}</span>
+          <span class="hint">
+            Yet Another Text-based TODO App. Also 「やった」 — <em>yatta</em>, “did it!”
+          </span>
+        </div>
+        <div class="actions">
+          <button class="btn" onclick={() => openUrl(REPO)}>
+            <Icon name="external" size={13} />Source
+          </button>
+          <button class="btn" onclick={() => openUrl(REPO + "/issues")}>Issues</button>
+        </div>
+      </div>
+      <p class="note">MIT licensed · © 2026 Carlos Bravo</p>
+    </section>
 
     <section class="shortcuts">
       <h3>Keyboard</h3>
@@ -394,6 +458,8 @@
   }
   .timepick select:hover { background: var(--surface); }
   .colon { color: var(--text-faint); font-variant-numeric: tabular-nums; }
+
+  .about em { font-style: normal; color: var(--accent); }
 
   .shortcuts dl { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; margin: 0; }
   .shortcuts div { display: flex; align-items: center; gap: 8px; }

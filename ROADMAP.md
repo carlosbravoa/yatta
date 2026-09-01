@@ -154,6 +154,9 @@ nothing about it - but it is a hack, and it is not currently done.
 
 ## Done
 
+- **2026-09-01** — 0.4.0: About window and settings section, optional
+  close-to-tray, and optional launch at login.
+
 - **2026-09-01** — CI on GitHub Actions: tests plus native amd64 and arm64
   snap builds on every push. Publishing stays manual.
 

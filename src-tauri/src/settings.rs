@@ -33,6 +33,13 @@ pub struct Settings {
     /// Local `HH:MM` times to check at. One entry means once a day, two means
     /// twice; keeping it a list is what makes both the same code path.
     pub reminder_times: Vec<String>,
+    /// Keep running in the tray when the window is closed, instead of
+    /// quitting. Only honoured when a tray icon actually exists -- otherwise
+    /// closing the window would strand the app with no way back.
+    pub close_to_tray: bool,
+    /// Start yatta at login, via an XDG autostart entry.
+    pub autostart: bool,
+
     /// Width of the task detail panel, in CSS pixels.
     pub detail_width: u32,
 
@@ -57,6 +64,8 @@ impl Default for Settings {
             first_run_done: false,
             reminders_enabled: true,
             reminder_times: vec!["09:00".into()],
+            close_to_tray: false,
+            autostart: false,
             detail_width: 380,
             last_reminder: String::new(),
         }

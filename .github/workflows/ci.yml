@@ -41,11 +41,15 @@ jobs:
       - name: Parser and view tests
         run: npm test
 
-      - name: Type-check the frontend
-        run: npx svelte-check --tsconfig ./tsconfig.json
+      # Runs svelte-check and produces dist/. Both matter, and the order does:
+      # with custom-protocol enabled tauri embeds the frontend at compile time,
+      # so the Rust build below fails outright if dist/ is not already there.
+      - name: Type-check and build the frontend
+        run: npm run build
 
-      # custom-protocol matches how the app is really built: without it the
-      # frontend is not embedded and the binary points at the dev server.
+      # custom-protocol matches how the app is really built. Without it the
+      # frontend is not embedded and the binary points at the dev server, so
+      # testing the other configuration would miss that whole class of bug.
       - name: Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --features custom-protocol
 

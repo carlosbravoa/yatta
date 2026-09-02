@@ -34,6 +34,7 @@
 
 <div
   class="row"
+  class:fresh={store.isFresh(task.path)}
   class:done={isDone}
   class:selected={store.openPath === task.path}
   role="button"
@@ -112,6 +113,29 @@
   .row:hover {
     background: var(--surface);
   }
+
+  /* A newly-arrived task glows briefly so you can see where it landed. Drawn
+     as an overlay rather than by animating background-color, so it does not
+     fight the hover and selected states underneath it. */
+  .fresh::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--accent) 26%, transparent),
+      color-mix(in srgb, var(--accent-2) 18%, transparent)
+    );
+    animation: fresh-fade 3000ms var(--ease) forwards;
+  }
+  @keyframes fresh-fade {
+    0%   { opacity: 1; }
+    30%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
   .row.selected {
     background: var(--accent-soft);
   }

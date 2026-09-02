@@ -92,6 +92,9 @@ function dueBucket(task: Task): string {
   return "later";
 }
 
+/** How long a newly-arrived task stays highlighted. */
+const FRESH_MS = 3000;
+
 const DUE_LABELS: Record<string, string> = {
   overdue: "Overdue",
   today: "Today",
@@ -129,6 +132,14 @@ class Store {
   importText = $state("");
 
   private toastTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /* Newly-arrived tasks flash briefly so you can see where one landed.
+     Detection lives here rather than at each creation site so it covers every
+     route in: the quick-add box, the popup window, the importer, a restore --
+     and a file an agent or your editor simply dropped into the vault. */
+  private known = new Set<string>();
+  private baselined = false;
+  freshPaths = $state<string[]>([]);
 
   // -- Derived --------------------------------------------------------------
 
@@ -287,6 +298,7 @@ class Store {
   async reload() {
     try {
       this.tasks = await api.listTasks();
+      this.syncKnown(true);
       this.error = null;
     } catch (e) {
       this.error = String(e);
@@ -299,6 +311,7 @@ class Store {
       const idx = this.tasks.findIndex((t) => t.path === saved.path);
       if (idx >= 0) this.tasks[idx] = saved;
       else this.tasks.push(saved);
+      this.noteCreated(saved.path);
       return saved;
     } catch (e) {
       this.notify(String(e));
@@ -343,6 +356,7 @@ class Store {
     try {
       const created = await api.createTasks($state.snapshot(drafts) as Task[]);
       this.tasks.push(...created);
+      for (const task of created) this.noteCreated(task.path);
       this.notify(`Imported ${created.length} task${created.length === 1 ? "" : "s"}`);
       return created.length;
     } catch (e) {
@@ -358,6 +372,8 @@ class Store {
       const idx = this.tasks.findIndex((t) => t.path === task.path);
       if (idx >= 0) this.tasks[idx] = restored;
       else this.tasks.push(restored);
+      // Its path changed on the way out of archive/, so it reads as an arrival.
+      this.noteCreated(restored.path);
       if (this.openPath === task.path) this.openPath = restored.path;
       this.notify(`Restored "${restored.title}"`);
     } catch (e) {
@@ -402,16 +418,54 @@ class Store {
   async updateSettings(patch: Partial<Settings>): Promise<boolean> {
     const next = { ...$state.snapshot(this.settings), ...patch } as Settings;
     try {
+      const movedVault = patch.vault_path !== undefined && patch.vault_path !== this.vaultPath;
       this.settings = await api.updateSettings(next);
       const info = await api.vaultInfo();
       this.vaultPath = info.path;
       this.isGitRepo = info.is_git_repo;
+      if (movedVault) this.baselined = false;
       await this.reload();
       return true;
     } catch (e) {
       this.notify(String(e));
       return false;
     }
+  }
+
+  isFresh(path: string): boolean {
+    return this.freshPaths.includes(path);
+  }
+
+  private markFresh(paths: string[]) {
+    if (paths.length === 0) return;
+    this.freshPaths = [...this.freshPaths, ...paths];
+    setTimeout(() => {
+      this.freshPaths = this.freshPaths.filter((p) => !paths.includes(p));
+    }, FRESH_MS);
+  }
+
+  /** Re-baseline what counts as already-seen.
+   *
+   *  The first load, and any vault switch, must not flash: everything would be
+   *  "new" and the whole list would light up, which tells you nothing. */
+  private syncKnown(flash: boolean) {
+    const incoming = this.tasks.map((t) => t.path).filter(Boolean);
+    if (!this.baselined) {
+      this.baselined = true;
+      this.known = new Set(incoming);
+      return;
+    }
+    const added = flash ? incoming.filter((p) => !this.known.has(p)) : [];
+    this.known = new Set(incoming);
+    this.markFresh(added);
+  }
+
+  /** Record a task this window created, so the reload it triggers does not
+   *  flash it a second time. */
+  private noteCreated(path: string) {
+    if (!path || this.known.has(path)) return;
+    this.known.add(path);
+    this.markFresh([path]);
   }
 
   notify(message: string) {

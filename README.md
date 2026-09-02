@@ -99,6 +99,10 @@ dependency, and git auto-commit shells out to whatever `git` is on `PATH`.
   becomes a task with a deadline, a priority and a tag. `@`-prefixed dates
   (`@friday`, `@15 sep`, `@2026-09-15`) work anywhere in the sentence; bare date
   words are only read at the end, so "Plan the friday standup" keeps its title.
+- **New tasks announce themselves.** A task that has just arrived glows for a
+  few seconds so you can see where it landed — however it got there: the
+  quick-add box, the popup, the importer, or a file an agent wrote straight into
+  the vault.
 - **Live external-edit sync.** The vault is watched. Edit a file in vim or have
   an agent write one and the list updates as it lands.
 - **Tags, grouping and smart views.** All tasks (the default), Today, Upcoming,

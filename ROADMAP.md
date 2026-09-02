@@ -154,6 +154,9 @@ nothing about it - but it is a hack, and it is not currently done.
 
 ## Done
 
+- **2026-09-02** — Newly-arrived tasks glow briefly, detected in the store so
+  it covers every route in, including files written straight into the vault.
+
 - **2026-09-02** — 0.4.1: startup roughly 3x faster. First paint went from
   ~1.6s to ~0.53s by trimming the font stack; see SNAP_PACKAGING.md for how
   to re-measure with `YATTA_TIMING=1`.

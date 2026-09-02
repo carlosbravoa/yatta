@@ -78,6 +78,7 @@
         {#each column.tasks as task (task.path)}
           <button
             class="card"
+            class:fresh={store.isFresh(task.path)}
             class:dragging={dragging === task.path}
             class:done={task.status === "done"}
             data-task
@@ -189,6 +190,29 @@
     transition: transform 120ms var(--ease), box-shadow 120ms var(--ease), opacity 120ms var(--ease);
   }
   .card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+
+  /* A newly-arrived task glows briefly so you can see where it landed. Drawn
+     as an overlay rather than by animating background-color, so it does not
+     fight the hover and selected states underneath it. */
+  .fresh::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--accent) 26%, transparent),
+      color-mix(in srgb, var(--accent-2) 18%, transparent)
+    );
+    animation: fresh-fade 3000ms var(--ease) forwards;
+  }
+  @keyframes fresh-fade {
+    0%   { opacity: 1; }
+    30%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
   .card:active { cursor: grabbing; }
   .card.dragging { opacity: 0.4; }
   .card.done .title { text-decoration: line-through; color: var(--text-dim); }

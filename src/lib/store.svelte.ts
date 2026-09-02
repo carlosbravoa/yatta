@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { mark } from "./timing";
 import { daysUntil, todayISO } from "./dates";
 import { PRIORITY_RANK, type Settings, type Status, type Task } from "./types";
 
@@ -252,8 +253,11 @@ class Store {
   async init() {
     this.loading = true;
     try {
+      mark("init:start");
       this.settings = await api.getSettings();
+      mark("init:settings");
       const info = await api.vaultInfo();
+      mark("init:vault-info");
       this.vaultPath = info.path;
       this.isGitRepo = info.is_git_repo;
       this.supportsTray = info.supports_tray;
@@ -269,7 +273,9 @@ class Store {
         await this.updateSettings({ first_run_done: true });
       }
 
+      mark("init:pre-reload");
       await this.reload();
+      mark("init:tasks");
       this.error = null;
     } catch (e) {
       this.error = String(e);

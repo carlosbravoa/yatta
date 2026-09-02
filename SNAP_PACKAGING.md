@@ -138,6 +138,24 @@ folder somewhere the `home` interface does not reach (a hidden `~/.dotfile`
 directory, or `/media` without `removable-media` connected) the picker reports
 the error and stays put rather than failing silently.
 
+## Measuring startup
+
+Both the Rust and webview sides emit epoch-millisecond marks to stderr when
+`YATTA_TIMING` is set, so the two timelines read as one sequence:
+
+```bash
+YATTA_TIMING=1 ./src-tauri/target/release/yatta 2>&1 | grep TIMING
+```
+
+Measure a **release** build; a debug binary starts far slower and will mislead
+you. Marks run from process entry through `setup()`, the webview's module start
+and mount, each phase of the first data load, and first paint.
+
+This is how the 0.4.1 startup fix was found, after three plausible theories --
+WebKit init, GPU setup, the IPC layer -- all turned out to be wrong. The tell
+was timers scheduled 50ms, 200ms and 400ms out firing at the same instant, which
+means the thread is blocked rather than any one call being slow.
+
 ## Troubleshooting
 
 **A blank or black window.** WebKitGTK inside confinement sometimes needs

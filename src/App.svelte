@@ -14,6 +14,7 @@
   import TaskList from "./lib/components/TaskList.svelte";
   import TopBar from "./lib/components/TopBar.svelte";
   import { store } from "./lib/store.svelte";
+  import { mark } from "./lib/timing";
 
   let quickadd = $state<QuickAdd | undefined>();
   let topbar = $state<TopBar | undefined>();
@@ -37,7 +38,11 @@
   });
 
   onMount(() => {
-    store.init();
+    mark("js:mounted");
+    // Two frames after mount is the earliest point the window has actually
+    // painted something, as opposed to having been told to.
+    requestAnimationFrame(() => requestAnimationFrame(() => mark("js:first-paint")));
+    store.init().then(() => mark("js:data-ready"));
 
     const pending: Promise<UnlistenFn>[] = [
       // Someone edited the markdown outside the app -- or the quick-add popup

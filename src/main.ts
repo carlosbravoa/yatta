@@ -2,6 +2,7 @@ import "./app.css";
 import { mount } from "svelte";
 import App from "./App.svelte";
 import AboutWindow from "./lib/components/AboutWindow.svelte";
+import { mark } from "./lib/timing";
 import QuickAddWindow from "./lib/components/QuickAddWindow.svelte";
 
 /* One bundle serves every window. The popups are opened with ?window=..., read
@@ -11,6 +12,8 @@ const which = new URLSearchParams(location.search).get("window") ?? "main";
 document.documentElement.dataset.window = which;
 
 const ROOTS = { quickadd: QuickAddWindow, about: AboutWindow, main: App } as const;
+
+mark("js:module-start");
 
 export default mount(ROOTS[which as keyof typeof ROOTS] ?? App, {
   target: document.getElementById("app")!,

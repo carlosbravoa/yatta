@@ -16,6 +16,26 @@ use std::sync::{Arc, Mutex};
 use task::{Status, Task};
 use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
+/// Startup timing, gated on YATTA_TIMING so it costs nothing in normal use.
+/// Both sides emit epoch milliseconds to stderr so the Rust and webview
+/// timelines can be read as one sequence.
+pub fn timing(label: &str) {
+    if std::env::var_os("YATTA_TIMING").is_none() {
+        return;
+    }
+    let ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    eprintln!("TIMING {ms} {label}");
+}
+
+/// Called from the webview, which has no cheap way to reach this stderr.
+#[tauri::command]
+fn timing_mark(label: String) {
+    timing(&label);
+}
+
 pub struct AppState {
     // `settings` is read by the reminder scheduler as well as the commands.
     pub settings: Mutex<Settings>,
@@ -394,6 +414,7 @@ fn normalize_tags(tags: Vec<String>) -> Vec<String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    timing("rust:run-entry");
     // `mut` is only needed when the desktop-integration plugin is compiled in.
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
@@ -421,8 +442,10 @@ pub fn run() {
             absolute_path,
             quick_add_done,
             app_info,
+            timing_mark,
         ])
         .setup(|app| {
+            timing("rust:setup-entry");
             let handle = app.handle().clone();
             let loaded = settings::load(&handle);
 
@@ -459,6 +482,7 @@ pub fn run() {
                 eprintln!("yatta: {e}");
             }
 
+            timing("rust:setup-done");
             Ok(())
         })
         .build(tauri::generate_context!())

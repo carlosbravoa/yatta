@@ -110,8 +110,12 @@ html, body, #app {
 }
 
 body {
-  font-family: "Inter", "Inter Variable", ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", Roboto, "Ubuntu", "Helvetica Neue", sans-serif;
+  /* Short on purpose. Every family the system does not have costs a
+     fontconfig lookup, repeated per weight -- the original nine-deep stack
+     (five of which can never exist on Linux) blocked the webview's first paint
+     for ~750ms. Naming an installed family first is the cheapest possible
+     resolution; system-ui covers macOS and Windows behind it. */
+  font-family: "Ubuntu", system-ui, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   color: var(--text);

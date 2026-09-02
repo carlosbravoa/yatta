@@ -1,6 +1,5 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
-  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
   import { onMount } from "svelte";
   import { api } from "../api";
   import { tagStyle } from "../colors";
@@ -19,17 +18,6 @@
     parsed.due !== null || parsed.priority !== "none" || parsed.tags.length > 0
   );
 
-  /** Reset for a fresh capture: the component now mounts once and is reused,
-   *  so this has to happen on every show rather than in onMount. */
-  function reset() {
-    value = "";
-    error = null;
-    busy = false;
-    // The window has only just been mapped; wait a frame for it to be
-    // focusable before asking for the caret.
-    requestAnimationFrame(() => input?.focus());
-  }
-
   /** The popup is its own window, so it applies the theme itself. */
   async function applyTheme() {
     try {
@@ -44,27 +32,18 @@
     }
   }
 
-  // Synchronous so it can return a cleanup function; the async work is kicked
-  // off separately.
   onMount(() => {
     input?.focus();
     applyTheme();
-
-    let off: UnlistenFn | undefined;
-    listen("quickadd-shown", reset)
-      .then((fn) => (off = fn))
-      .catch(() => {});
-
-    return () => off?.();
   });
 
   async function close() {
-    // Hidden, not closed: destroying it would mean rebuilding a webview next
-    // time, which is the cost this whole change exists to avoid.
+    // Destroyed rather than hidden: a re-shown window does not get keyboard
+    // focus on Wayland, so the next open would appear without the caret.
     try {
-      await invoke("hide_quick_add");
+      await invoke("close_quick_add");
     } catch {
-      /* nothing useful to do if it will not hide */
+      /* nothing useful to do if it will not close */
     }
   }
 

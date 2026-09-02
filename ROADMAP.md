@@ -46,6 +46,23 @@ one keystroke to put things back.
   Prefer detecting that and dropping the entry over silently clobbering the
   user's other edit.
 
+### Do not retry: keeping the quick-add popup resident
+
+**Tried and reverted, 2026-09-02.** Building the popup means building a webview,
+which is most of the app's startup cost paid again for a box you type one line
+into, so keeping it hidden between uses looks like free speed. It is not.
+
+On Wayland a client cannot focus itself; only a newly mapped window is granted
+focus by the compositor. A re-shown popup appears **without the caret**, so the
+first thing typed goes to whatever had focus before. A capture box you have to
+click first is worse than one that takes half a second to appear, so the trade
+is not close.
+
+This is the same restriction that forces the main window to be rebuilt rather
+than hidden, and it is not specific to decorated windows -- that was the wrong
+theory. Do not revisit without a way to request an activation token, which a
+tray click or a global shortcut does not currently provide.
+
 ### Parked: scroll a newly-arrived task into view
 
 **Attempted 2026-09-02, reverted.** The glow added that day works, but if the
@@ -189,6 +206,9 @@ nothing about it - but it is a hack, and it is not currently done.
 ---
 
 ## Done
+
+- **2026-09-02** — 0.6.1: reverted the resident quick-add popup. It shipped in
+  0.6.0 and broke typing on the second open.
 
 - **2026-09-02** — 0.6.0: task context menu with per-task archive (which did
   not exist before — archiving was all-or-nothing and buried in the grouping

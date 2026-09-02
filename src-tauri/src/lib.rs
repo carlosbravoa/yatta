@@ -128,20 +128,15 @@ pub fn open_about(app: &AppHandle) {
 /// capture works from the tray or the hotkey whatever the main window is doing
 /// -- minimised, on another workspace, or closed.
 pub fn open_quick_add(app: &AppHandle) {
-    // Kept alive between uses rather than rebuilt. Building a window means
-    // building a webview, which is most of the app's startup cost paid again
-    // for a box you type one line into.
-    //
-    // Hiding is safe here in a way it was not for the main window: this window
-    // is undecorated, so there are no server-side titlebar buttons to go stale
-    // across an unmap and remap.
+    // Rebuilt each time rather than kept alive and re-shown. Keeping it
+    // resident is the obvious optimisation -- building a window means building
+    // a webview -- but on Wayland a client cannot focus itself, and only a
+    // newly mapped window is granted focus by the compositor. A re-shown popup
+    // appears without the caret, so the first thing you type goes elsewhere.
+    // A capture box you have to click first is worse than a slower one.
     if let Some(window) = app.get_webview_window("quickadd") {
-        use tauri::Emitter;
         let _ = window.show();
         let _ = window.set_focus();
-        // Tell it to clear the field and take the caret; the component only
-        // mounts once now, so its onMount will not run again.
-        let _ = window.emit("quickadd-shown", ());
         return;
     }
 
@@ -172,14 +167,15 @@ pub fn open_quick_add(app: &AppHandle) {
 fn quick_add_done(app: AppHandle) {
     use tauri::Emitter;
     let _ = app.emit("vault-changed", ());
-    hide_quick_add(app);
+    close_quick_add(app);
 }
 
-/// Put the popup away without destroying it, so the next open is instant.
+/// Destroy the popup, so the next open is a freshly mapped -- and therefore
+/// focused -- window.
 #[tauri::command]
-fn hide_quick_add(app: AppHandle) {
+fn close_quick_add(app: AppHandle) {
     if let Some(window) = app.get_webview_window("quickadd") {
-        let _ = window.hide();
+        let _ = window.close();
     }
 }
 
@@ -471,7 +467,7 @@ pub fn run() {
             archive_done,
             absolute_path,
             quick_add_done,
-            hide_quick_add,
+            close_quick_add,
             app_info,
             timing_mark,
         ])

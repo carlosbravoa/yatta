@@ -14,6 +14,8 @@ export const api = {
     invoke<Task>("set_status", { path, status }),
   deleteTask: (path: string, title: string) =>
     invoke<void>("delete_task", { path, title }),
+  archiveTask: (path: string, title: string) =>
+    invoke<Task>("archive_task", { path, title }),
   archiveDone: () => invoke<number>("archive_done"),
   absolutePath: (path: string) => invoke<string>("absolute_path", { path }),
 };

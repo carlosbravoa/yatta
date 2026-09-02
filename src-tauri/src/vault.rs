@@ -170,6 +170,28 @@ pub fn delete_task(root: &Path, rel_path: &str) -> Result<(), String> {
     fs::remove_file(&path).map_err(|e| format!("could not delete {}: {e}", path.display()))
 }
 
+/// Move one task's file into `archive/`. Returns its new vault-relative path.
+pub fn archive_task(root: &Path, rel_path: &str) -> Result<String, String> {
+    let from = root.join(rel_path);
+    if !from.starts_with(root) {
+        return Err("refusing to move a file outside the vault".into());
+    }
+    // Already there; nothing to do, and reporting success keeps the caller simple.
+    if rel_path.starts_with(&format!("{ARCHIVE_DIR}/")) {
+        return Ok(rel_path.to_string());
+    }
+
+    let archive = root.join(ARCHIVE_DIR);
+    fs::create_dir_all(&archive).map_err(|e| e.to_string())?;
+    let stem = Path::new(rel_path)
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .ok_or("not a file")?;
+    let to = unique_path(&archive, &stem);
+    fs::rename(&from, &to).map_err(|e| format!("could not archive {rel_path}: {e}"))?;
+    Ok(rel(root, &to))
+}
+
 /// Move every completed task into `archive/`. They stay real markdown files --
 /// archiving is a move, never a delete.
 pub fn archive_done(root: &Path) -> Result<usize, String> {
@@ -181,13 +203,7 @@ pub fn archive_done(root: &Path) -> Result<usize, String> {
         if task.status != Status::Done || task.archived {
             continue;
         }
-        let from = root.join(&task.path);
-        let stem = Path::new(&task.path)
-            .file_stem()
-            .map(|s| s.to_string_lossy().to_string())
-            .unwrap_or_else(|| slugify(&task.title));
-        let to = unique_path(&archive, &stem);
-        if fs::rename(&from, &to).is_ok() {
+        if archive_task(root, &task.path).is_ok() {
             moved += 1;
         }
     }

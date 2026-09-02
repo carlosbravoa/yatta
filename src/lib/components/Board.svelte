@@ -87,6 +87,10 @@
             ondragstart={(e) => dragstart(e, task)}
             ondragend={dragend}
             onclick={() => (store.openPath = task.path)}
+            oncontextmenu={(e) => {
+              e.preventDefault();
+              store.contextMenu = { x: e.clientX, y: e.clientY, path: task.path };
+            }}
             onkeydown={(e) => onCardKey(e, task)}
             animate:flip={{ duration: 200 }}
           >

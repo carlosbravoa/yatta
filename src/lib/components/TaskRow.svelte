@@ -26,6 +26,11 @@
     }
   }
 
+  function onContextMenu(event: MouseEvent) {
+    event.preventDefault();
+    store.contextMenu = { x: event.clientX, y: event.clientY, path: task.path };
+  }
+
   function toggle(event: MouseEvent) {
     event.stopPropagation();
     store.toggle(task);
@@ -42,6 +47,7 @@
   data-task
   data-path={task.path}
   onclick={open}
+  oncontextmenu={onContextMenu}
   {onkeydown}
 >
   <span class="pbar" data-p={task.priority}></span>

@@ -105,6 +105,9 @@ dependency, and git auto-commit shells out to whatever `git` is on `PATH`.
   remember what else you meant to write down. Completing a task offers an undo.
   All of it works however the task got there: the quick-add box, the tray
   popup, the importer, or a file an agent wrote into the vault.
+- **Right-click a task** for open, complete, archive, delete, and reaching the
+  markdown file itself. Archiving and deleting are both undoable — deleting
+  snapshots the task first, so undo puts the file back exactly where it was.
 - **Live external-edit sync.** The vault is watched. Edit a file in vim or have
   an agent write one and the list updates as it lands.
 - **Tags, grouping and smart views.** All tasks (the default), Today, Upcoming,

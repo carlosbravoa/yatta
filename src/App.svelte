@@ -4,6 +4,7 @@
   import { fly } from "svelte/transition";
   import Board from "./lib/components/Board.svelte";
   import Calendar from "./lib/components/Calendar.svelte";
+  import ContextMenu from "./lib/components/ContextMenu.svelte";
   import Icon from "./lib/components/Icon.svelte";
   import ImportPanel from "./lib/components/ImportPanel.svelte";
   import Onboarding from "./lib/components/Onboarding.svelte";
@@ -90,7 +91,8 @@
     if (store.needsOnboarding) return;
 
     if (event.key === "Escape") {
-      if (store.showImport) store.showImport = false;
+      if (store.contextMenu) store.contextMenu = null;
+      else if (store.showImport) store.showImport = false;
       else if (store.showSettings) store.showSettings = false;
       else if (store.openPath !== null) store.openPath = null;
       else if (store.query) store.query = "";
@@ -196,6 +198,8 @@
 {#if !store.loading && store.needsOnboarding}
   <Onboarding />
 {/if}
+
+<ContextMenu />
 
 {#if store.showSettings}
   <SettingsPanel />

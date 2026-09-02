@@ -17,6 +17,14 @@
 
   let counts = $derived(store.counts);
 
+  /* Picking a view clears the search. Leaving it applied makes the click look
+     broken: you switch to All tasks, still see a filtered list, and nothing
+     on screen explains why. */
+  function select(view: ViewId) {
+    store.view = view;
+    store.query = "";
+  }
+
   const folderName = $derived(
     store.vaultPath.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || store.vaultPath
   );
@@ -57,7 +65,7 @@
       <button
         class="nav"
         class:active={store.view === view.id}
-        onclick={() => (store.view = view.id)}
+        onclick={() => select(view.id)}
         aria-current={store.view === view.id ? "page" : undefined}
       >
         <Icon name={view.icon} />
@@ -74,7 +82,7 @@
       <button
         class="nav"
         class:active={store.view === "archived"}
-        onclick={() => (store.view = "archived")}
+        onclick={() => select("archived")}
       >
         <Icon name="archive" />
         <span class="label">Archive</span>
@@ -93,7 +101,7 @@
         <button
           class="nav"
           class:active={store.view === `tag:${tag.name}`}
-          onclick={() => (store.view = `tag:${tag.name}`)}
+          onclick={() => select(`tag:${tag.name}`)}
         >
           <span class="dot" style={tagStyle(tag.name)}></span>
           <span class="label">{tag.name}</span>

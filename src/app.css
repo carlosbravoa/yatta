@@ -89,6 +89,19 @@
   --shadow-lg: 0 20px 56px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
+/* ── Stacking order ───────────────────────────────────────────────────────────
+   Overlays, lowest first. Keep new ones inside this scheme rather than picking
+   a number: the context menu ended up beneath the toast that way, which made
+   Archive and Delete unreachable wherever the two overlapped.
+
+     5   task detail resize grip
+     30  top bar popover
+     40  settings / import scrim        41  their panels
+     60  first-run picker
+     70  toast
+     79  context menu scrim             80  the menu itself
+   ────────────────────────────────────────────────────────────────────────── */
+
 /* ── Base ─────────────────────────────────────────────────────────────────── */
 
 * { box-sizing: border-box; }

@@ -139,6 +139,8 @@ class Store {
   /** Vault-relative path of the task open in the detail panel. */
   openPath = $state<string | null>(null);
   showSettings = $state(false);
+  /** Position and target of an open row context menu. */
+  contextMenu = $state<{ x: number; y: number; path: string } | null>(null);
   showImport = $state(false);
   /** Text the importer opens pre-filled with (e.g. a multi-line paste). */
   importText = $state("");
@@ -369,11 +371,45 @@ class Store {
   }
 
   async remove(task: Task) {
+    // Keep a copy before the file goes: it is everything needed to put it back,
+    // including the body and the path, so undo restores it exactly where it was.
+    const snapshot = JSON.parse(JSON.stringify($state.snapshot(task))) as Task;
     try {
       await api.deleteTask(task.path, task.title);
       this.tasks = this.tasks.filter((t) => t.path !== task.path);
       if (this.openPath === task.path) this.openPath = null;
-      this.notify(`Deleted "${task.title}"`);
+      this.notify(`Deleted “${short(task.title)}”`, {
+        label: "Undo",
+        run: async () => {
+          const restored = await api.saveTask(snapshot);
+          this.known.add(restored.path);
+          const idx = this.tasks.findIndex((t) => t.path === restored.path);
+          if (idx >= 0) this.tasks[idx] = restored;
+          else this.tasks.push(restored);
+        },
+      });
+    } catch (e) {
+      this.notify(String(e));
+    }
+  }
+
+  /** Archive a single task -- a file move, so undo is a move back. */
+  async archiveTask(task: Task) {
+    try {
+      const archived = await api.archiveTask(task.path, task.title);
+      const idx = this.tasks.findIndex((t) => t.path === task.path);
+      if (idx >= 0) this.tasks[idx] = archived;
+      if (this.openPath === task.path) this.openPath = null;
+      // Its path changed, so it would otherwise read as a fresh arrival.
+      this.known.add(archived.path);
+
+      this.notify(`Archived “${short(task.title)}”`, {
+        label: "Undo",
+        run: async () => {
+          const current = this.tasks.find((t) => t.path === archived.path);
+          if (current) await this.restore(current);
+        },
+      });
     } catch (e) {
       this.notify(String(e));
     }

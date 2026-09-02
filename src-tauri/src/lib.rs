@@ -128,9 +128,20 @@ pub fn open_about(app: &AppHandle) {
 /// capture works from the tray or the hotkey whatever the main window is doing
 /// -- minimised, on another workspace, or closed.
 pub fn open_quick_add(app: &AppHandle) {
+    // Kept alive between uses rather than rebuilt. Building a window means
+    // building a webview, which is most of the app's startup cost paid again
+    // for a box you type one line into.
+    //
+    // Hiding is safe here in a way it was not for the main window: this window
+    // is undecorated, so there are no server-side titlebar buttons to go stale
+    // across an unmap and remap.
     if let Some(window) = app.get_webview_window("quickadd") {
+        use tauri::Emitter;
         let _ = window.show();
         let _ = window.set_focus();
+        // Tell it to clear the field and take the caret; the component only
+        // mounts once now, so its onMount will not run again.
+        let _ = window.emit("quickadd-shown", ());
         return;
     }
 
@@ -161,8 +172,14 @@ pub fn open_quick_add(app: &AppHandle) {
 fn quick_add_done(app: AppHandle) {
     use tauri::Emitter;
     let _ = app.emit("vault-changed", ());
+    hide_quick_add(app);
+}
+
+/// Put the popup away without destroying it, so the next open is instant.
+#[tauri::command]
+fn hide_quick_add(app: AppHandle) {
     if let Some(window) = app.get_webview_window("quickadd") {
-        let _ = window.close();
+        let _ = window.hide();
     }
 }
 
@@ -379,6 +396,18 @@ fn restore_task(state: State<'_, AppState>, path: String) -> Result<Task, String
 }
 
 #[tauri::command]
+fn archive_task(state: State<'_, AppState>, path: String, title: String) -> Result<Task, String> {
+    let root = state.vault()?;
+    state.mark_write();
+    let new_path = vault::archive_task(&root, &path)?;
+
+    let content = std::fs::read_to_string(root.join(&new_path))
+        .map_err(|e| format!("could not read {new_path}: {e}"))?;
+    state.committer.request(format!("archive \"{title}\""));
+    Ok(task::parse_task(&content, &new_path))
+}
+
+#[tauri::command]
 fn archive_done(state: State<'_, AppState>) -> Result<usize, String> {
     let root = state.vault()?;
     state.mark_write();
@@ -438,9 +467,11 @@ pub fn run() {
             restore_task,
             set_status,
             delete_task,
+            archive_task,
             archive_done,
             absolute_path,
             quick_add_done,
+            hide_quick_add,
             app_info,
             timing_mark,
         ])

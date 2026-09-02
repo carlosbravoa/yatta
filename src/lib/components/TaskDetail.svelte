@@ -482,6 +482,16 @@
       <button class="btn icon" onclick={revealFile} title="Show in file manager" aria-label="Show in file manager">
         <Icon name="folder" size={14} />
       </button>
+      {#if !draft.archived}
+        <button
+          class="btn icon"
+          onclick={() => store.archiveTask(draft)}
+          title="Archive this task"
+          aria-label="Archive this task"
+        >
+          <Icon name="archive" size={14} />
+        </button>
+      {/if}
       <button class="btn icon danger" onclick={remove} title="Delete task" aria-label="Delete task">
         <Icon name="trash" size={14} />
       </button>

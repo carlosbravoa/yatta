@@ -46,6 +46,42 @@ one keystroke to put things back.
   Prefer detecting that and dropping the entry over silently clobbering the
   user's other edit.
 
+### Parked: scroll a newly-arrived task into view
+
+**Attempted 2026-09-02, reverted.** The glow added that day works, but if the
+new task is below the fold you never see it. Several attempts to scroll to it
+all failed. Recording the dead ends so the next attempt starts further along.
+
+What is already known to work: the store correctly identifies the new task, and
+the effect fires and finds the right row in the DOM. Measured, not assumed --
+`rows=15 overflow=232px rowTop=822 viewport=0..673 alreadyVisible=false`. So the
+task is genuinely off screen in a scrollable container, and detection is fine.
+
+What failed, in order:
+
+1. `scrollIntoView({ block: "nearest" })` — no effect at all. WebKitGTK appears
+   to ignore the options object, the same way it ignores `field-sizing`.
+2. Computing the delta and calling `scroller.scrollTo({ top, behavior })` — also
+   nothing. Suspicion: if the dictionary form is unsupported it degrades to
+   `scrollTo(0, 0)`, i.e. scrolls to the top, which is indistinguishable from
+   doing nothing when already there.
+3. Assigning `scroller.scrollTop = before + delta` directly, with smoothness
+   moved to CSS `scroll-behavior`. Reported `delta=260 before=0 after=0
+   max=364` — the container had room and refused to move. Note the read-back is
+   unreliable under smooth scrolling, so `after=0` may be an artefact rather
+   than the failure itself.
+4. `input.focus({ preventScroll: true })` in QuickAdd, on the theory that
+   refocusing the box (which sits at the top) was yanking the viewport back and
+   undoing the scroll. This would have explained why arrivals from the
+   filesystem behaved differently from ones typed into the box. Did not fix it.
+
+**Worth trying next:** confirm which element actually scrolls, rather than
+assuming it is `main` — a wrapper or `.content` may be the real scroller, in
+which case every attempt above was scrolling the wrong node. `document.
+scrollingElement` and walking up from the row via `scrollHeight > clientHeight`
+would settle it. Also worth testing scrolling in a plain WebKitGTK page to
+establish what the engine supports at all, separately from this app.
+
 ### Bug: Ctrl+Z does not undo typing inside a text field
 
 **Reported:** 2026-08-31

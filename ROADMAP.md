@@ -190,6 +190,10 @@ nothing about it - but it is a hack, and it is not currently done.
 
 ## Done
 
+- **2026-09-02** — 0.5.0: arrivals and completions are announced. The creation
+  message links into the task's details; completing offers an undo. Sidesteps
+  the parked scroll problem: a message is visible wherever the row landed.
+
 - **2026-09-02** — Newly-arrived tasks glow briefly, detected in the store so
   it covers every route in, including files written straight into the vault.
 

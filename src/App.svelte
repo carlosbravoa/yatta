@@ -206,7 +206,17 @@
 {/if}
 
 {#if store.toast}
-  <div class="toast" transition:fly={{ y: 12, duration: 180 }}>{store.toast}</div>
+  <div class="toast" transition:fly={{ y: 12, duration: 180 }}>
+    <span class="msg">{store.toast.message}</span>
+    {#if store.toast.action}
+      <button class="undo" onclick={() => store.runToastAction()}>
+        {store.toast.action.label}
+      </button>
+    {/if}
+    <button class="close" onclick={() => store.dismissToast()} aria-label="Dismiss">
+      <Icon name="x" size={12} stroke={2.5} />
+    </button>
+  </div>
 {/if}
 
 <style>
@@ -260,8 +270,11 @@
     bottom: 22px;
     left: 50%;
     transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
     max-width: 70vw;
-    padding: 9px 16px;
+    padding: 8px 10px 8px 16px;
     border-radius: 99px;
     font-size: 13px;
     font-weight: 500;
@@ -269,4 +282,35 @@
     background: var(--text);
     box-shadow: var(--shadow-lg);
   }
+  .msg {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .undo {
+    flex: none;
+    height: 24px;
+    padding: 0 11px;
+    border-radius: 99px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--bg);
+    background: color-mix(in srgb, var(--accent-contrast) 22%, transparent);
+    transition: background 110ms var(--ease);
+  }
+  .undo:hover { background: color-mix(in srgb, var(--accent-contrast) 38%, transparent); }
+
+  .close {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 99px;
+    color: var(--accent-contrast);
+    opacity: 0.55;
+    transition: opacity 110ms var(--ease);
+  }
+  .close:hover { opacity: 1; }
 </style>

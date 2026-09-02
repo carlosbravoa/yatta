@@ -95,6 +95,18 @@ function dueBucket(task: Task): string {
 /** How long a newly-arrived task stays highlighted. */
 const FRESH_MS = 3000;
 
+/** Titles are unbounded; a toast is not. */
+function short(title: string, max = 42): string {
+  const t = title.trim();
+  return t.length <= max ? t : `${t.slice(0, max - 1).trimEnd()}…`;
+}
+
+export interface Toast {
+  message: string;
+  /** An offer to reverse what just happened, shown as a link in the toast. */
+  action?: { label: string; run: () => void | Promise<void> };
+}
+
 const DUE_LABELS: Record<string, string> = {
   overdue: "Overdue",
   today: "Today",
@@ -122,7 +134,7 @@ class Store {
   query = $state("");
   loading = $state(true);
   error = $state<string | null>(null);
-  toast = $state<string | null>(null);
+  toast = $state<Toast | null>(null);
 
   /** Vault-relative path of the task open in the detail panel. */
   openPath = $state<string | null>(null);
@@ -311,7 +323,9 @@ class Store {
       const idx = this.tasks.findIndex((t) => t.path === saved.path);
       if (idx >= 0) this.tasks[idx] = saved;
       else this.tasks.push(saved);
+      const isCreate = !this.known.has(saved.path);
       this.noteCreated(saved.path);
+      if (isCreate) this.announceNew(saved.path, saved.title);
       return saved;
     } catch (e) {
       this.notify(String(e));
@@ -334,6 +348,20 @@ class Store {
     try {
       const saved = await api.setStatus(task.path, next);
       if (idx >= 0) this.tasks[idx] = saved;
+
+      if (next === "done") {
+        const path = saved.path;
+        const previous = task.status;
+        this.notify(`Task “${short(saved.title)}” marked as done!`, {
+          label: "Undo",
+          run: async () => {
+            // Look the task up again rather than closing over a stale copy:
+            // it may have been reloaded from disk in the meantime.
+            const current = this.tasks.find((t) => t.path === path);
+            if (current) await this.setStatus(current, previous);
+          },
+        });
+      }
     } catch (e) {
       this.notify(String(e));
       await this.reload();
@@ -432,6 +460,18 @@ class Store {
     }
   }
 
+  /** Announce a new task, with a way straight into its details -- quick add
+   *  captures a title in a hurry, and this is the moment you still remember
+   *  what else you meant to write down. */
+  private announceNew(path: string, title: string) {
+    this.notify(`New task “${short(title)}” added`, {
+      label: "Add details",
+      run: () => {
+        this.openPath = path;
+      },
+    });
+  }
+
   isFresh(path: string): boolean {
     return this.freshPaths.includes(path);
   }
@@ -458,6 +498,13 @@ class Store {
     const added = flash ? incoming.filter((p) => !this.known.has(p)) : [];
     this.known = new Set(incoming);
     this.markFresh(added);
+
+    if (added.length === 1) {
+      const task = this.tasks.find((t) => t.path === added[0]);
+      if (task) this.announceNew(task.path, task.title);
+    } else if (added.length > 1) {
+      this.notify(`${added.length} new tasks added`);
+    }
   }
 
   /** Record a task this window created, so the reload it triggers does not
@@ -468,10 +515,22 @@ class Store {
     this.markFresh([path]);
   }
 
-  notify(message: string) {
-    this.toast = message;
+  notify(message: string, action?: Toast["action"]) {
+    this.toast = { message, action };
     clearTimeout(this.toastTimer);
-    this.toastTimer = setTimeout(() => (this.toast = null), 3200);
+    // An offer to undo needs long enough to read the sentence and decide.
+    this.toastTimer = setTimeout(() => (this.toast = null), action ? 7000 : 3200);
+  }
+
+  dismissToast() {
+    clearTimeout(this.toastTimer);
+    this.toast = null;
+  }
+
+  async runToastAction() {
+    const action = this.toast?.action;
+    this.dismissToast();
+    await action?.run();
   }
 
   taskAt(path: string | null): Task | null {

@@ -100,9 +100,11 @@ dependency, and git auto-commit shells out to whatever `git` is on `PATH`.
   (`@friday`, `@15 sep`, `@2026-09-15`) work anywhere in the sentence; bare date
   words are only read at the end, so "Plan the friday standup" keeps its title.
 - **New tasks announce themselves.** A task that has just arrived glows for a
-  few seconds so you can see where it landed — however it got there: the
-  quick-add box, the popup, the importer, or a file an agent wrote straight into
-  the vault.
+  few seconds, and a message names it with a link straight into its details —
+  quick add captures a title in a hurry, and that is the moment you still
+  remember what else you meant to write down. Completing a task offers an undo.
+  All of it works however the task got there: the quick-add box, the tray
+  popup, the importer, or a file an agent wrote into the vault.
 - **Live external-edit sync.** The vault is watched. Edit a file in vim or have
   an agent write one and the list updates as it lands.
 - **Tags, grouping and smart views.** All tasks (the default), Today, Upcoming,

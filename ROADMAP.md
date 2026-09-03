@@ -200,8 +200,9 @@ nothing about it - but it is a hack, and it is not currently done.
   this is not fixable in the app. Documented in the README.
 - **Saving a task from the UI rewrites its frontmatter**, dropping custom keys
   added by hand.
-- **No macOS/Windows icons yet** — only the Linux PNGs exist.
-  `npx tauri icon src-tauri/icons/icon.png` generates the rest.
+- **macOS is unimplemented.** Launch-at-login returns an explicit error there,
+  and nothing has been built or tested on it. Windows builds in CI; macOS would
+  need a Mac for signing and notarisation.
 
 ---
 

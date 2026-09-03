@@ -25,6 +25,29 @@ dependency tree inside a fresh LXD container. Later builds reuse it.
 Never pass `--destructive-mode`. It builds on the host, pollutes it with build
 dependencies, and produces artefacts that may not reproduce.
 
+## Windows
+
+`.github/workflows/ci.yml` builds an NSIS installer on a `windows-latest`
+runner. It is built on Windows rather than cross-compiled from Linux: Tauri's
+bundling needs Windows tooling, and cross-compiling to it is unsupported. The
+installer lands as a workflow artefact.
+
+Windows uses the Edge WebView2 runtime rather than WebKitGTK, so there is no GTK
+stack to install, and every WebKitGTK workaround in this app is untested there —
+`field-sizing`, `scrollIntoView` options and the font-stack cost all behave
+differently on Chromium, most likely better.
+
+Two things remain before it is fit to hand to anyone:
+
+- **Code signing.** An unsigned installer triggers a SmartScreen warning that
+  will put people off. A certificate costs roughly $100–400 a year, or there is
+  Azure Trusted Signing.
+- **Testing on real Windows.** A green build proves it compiles, nothing more.
+
+Launch-at-login is implemented per platform: an XDG autostart entry on Linux, a
+`HKCU\...\Run` value via `reg.exe` on Windows. macOS would need a LaunchAgent
+and returns an explicit error rather than a switch that does nothing.
+
 ## Other architectures
 
 `snapcraft.yaml` declares both `amd64` and `arm64` under `platforms:`. Without

@@ -1,6 +1,6 @@
 [package]
 name = "yatta"
-version = "0.6.1"
+version = "0.7.0"
 description = "Yet Another Text-based TODO App"
 edition = "2021"
 license = "MIT"

@@ -207,6 +207,10 @@ nothing about it - but it is a hack, and it is not currently done.
 
 ## Done
 
+- **2026-09-02** — 0.7.0: the quick-add popup takes an optional description,
+  and its title now reads as an editable field rather than blending into the
+  card.
+
 - **2026-09-02** — 0.6.1: reverted the resident quick-add popup. It shipped in
   0.6.0 and broke typing on the second open.
 

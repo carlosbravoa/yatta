@@ -128,9 +128,12 @@ dependency, and git auto-commit shells out to whatever `git` is on `PATH`.
   itself to your login items — written to the right place whether it is a snap
   or not.
 - **Quick-add popup.** The tray item and the global hotkey open a small
-  always-on-top window with one field, rather than trying to raise the main
-  window — which Wayland does not permit a client to do for itself. Capture
-  works whether the app is minimised, on another workspace, or closed.
+  always-on-top window: a title line that parses the same syntax as quick add,
+  and an optional space for notes. Enter saves from the title, so the fast path
+  is one line and a keystroke; Tab reaches the notes and Ctrl+Enter saves from
+  there. It is a separate window rather than an attempt to raise the main one,
+  which Wayland does not permit a client to do for itself — so capture works
+  whether the app is minimised, on another workspace, or closed.
 - **Calendar.** A month grid answering two questions: what is due on a day
   ahead, and — the one that is hard to answer anywhere else — what you actually
   finished on a day behind. Every task file already records `completed:`, so the

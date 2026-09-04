@@ -1,7 +1,7 @@
 name: yatta
 title: yatta
 base: core24
-version: '0.7.0'
+version: '0.7.1'
 summary: Yet Another Text-based TODO App - tasks as markdown files
 description: |
   yatta - Yet Another Text-based TODO App.

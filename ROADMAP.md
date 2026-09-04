@@ -189,6 +189,15 @@ nothing about it - but it is a hack, and it is not currently done.
 
 ## Known gaps
 
+- **`snapcore/action-build` still targets Node 20**, which GitHub has deprecated.
+  Our own actions are current; this is the last one warning, and there is no
+  newer version to move to — `v1.3.0` is the latest tag and declares
+  `using: 'node20'`. GitHub currently forces it onto Node 24, so it works, but
+  it will break when that shim is removed. Replacing it means hand-rolling
+  snapcraft and LXD setup in the workflow, which trades a harmless warning for
+  fragility in the one part of the pipeline that has been reliable. Better
+  resolved upstream, in Canonical's own repository.
+
 - **`sort_by: "manual"` is dead code.** It is in the TypeScript `Settings` type,
   has no case in `compare()`, and is not offered in the sort menu. Either
   implement drag-to-reorder in the list or delete it from the type — as it

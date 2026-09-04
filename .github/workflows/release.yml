@@ -154,9 +154,27 @@ jobs:
           PRERELEASE: ${{ needs.check.outputs.prerelease }}
           REPO: ${{ github.repository }}
         run: |
+          # Collect files, not directories. Artifacts keep the folder structure
+          # they were uploaded with, so dist/ holds deb/ and appimage/ rather
+          # than a flat pile -- and `dist/*` handed gh a directory to upload.
+          mapfile -t assets < <(find dist -type f \
+            \( -name '*.exe' -o -name '*.deb' -o -name '*.AppImage' \) | sort)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "::error::no installers were found to attach"
+            exit 1
+          fi
+          printf '  attaching %s\n' "${assets[@]}"
+
           args=(--title "yatta $GITHUB_REF_NAME" --generate-notes --repo "$REPO")
           [ "$PRERELEASE" = "true" ] && args+=(--prerelease)
-          gh release create "$GITHUB_REF_NAME" "${args[@]}" dist/*
+
+          # Idempotent: a re-run after a partial upload should finish the job
+          # rather than fail because the release already exists.
+          if gh release view "$GITHUB_REF_NAME" --repo "$REPO" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" --repo "$REPO" --clobber "${assets[@]}"
+          else
+            gh release create "$GITHUB_REF_NAME" "${args[@]}" "${assets[@]}"
+          fi
 
           # Prepend install guidance to the generated notes, so the Snap Store
           # stays the headline route on Linux rather than one of three downloads

@@ -94,10 +94,10 @@ parts:
     source: .
 
     build-snaps:
-      # Node 22 is not available as a noble deb (noble ships 18.19) and Vite 6
-      # requires >= 20.19 / 22.12, so this is one of the cases where a
-      # build-snap is the only option.
-      - node/22/stable
+      # Node is not available at a usable version as a noble deb (noble ships
+      # 18.19, and Vite 6 wants >= 20.19 / 22.12), so this is one of the cases
+      # where a build-snap is the only option.
+      - node/24/stable
 
     build-packages:
       - build-essential

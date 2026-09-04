@@ -87,7 +87,19 @@ the GNOME platform snap already provides WebKitGTK, GTK3, librsvg and
 libayatana-appindicator. See `SNAP_PACKAGING.md` for interface connections and
 troubleshooting.
 
-### macOS and Windows
+### Windows
+
+Download the `yatta_<version>_x64-setup.exe` installer from the
+[latest release](https://github.com/carlosbravoa/yatta/releases/latest). The
+installer is not code-signed, so SmartScreen will warn on first run: choose
+*More info*, then *Run anyway*.
+
+Releases are cut by pushing a version tag: bump the version in
+`package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` and
+`snap/snapcraft.yaml`, commit, then `git tag v<version> && git push --tags`.
+The `Release` workflow builds the installer and publishes it.
+
+### macOS and Windows from source
 
 No source changes are needed. Install Rust and Node, then `npm install &&
 npm run app:build`. The tray and hotkey work on both without the appindicator

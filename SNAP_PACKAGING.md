@@ -25,6 +25,46 @@ dependency tree inside a fresh LXD container. Later builds reuse it.
 Never pass `--destructive-mode`. It builds on the host, pollutes it with build
 dependencies, and produces artefacts that may not reproduce.
 
+## Releasing
+
+Pushing a version tag is the whole release:
+
+```bash
+git tag v0.8.0 && git push origin v0.8.0
+```
+
+`.github/workflows/release.yml` then builds the Windows installer, a `.deb` and
+an `.AppImage`, and snaps for amd64 and arm64. It publishes a GitHub Release
+with the first three attached, and uploads both snaps to the Snap Store.
+
+**The tag chooses the risk.** A plain tag (`v0.8.0`) goes to the store's stable
+channel. A pre-release tag (`v0.8.0-rc1`) goes to beta instead and marks the
+GitHub Release as a pre-release — a way to ship something for real without
+putting it in front of everyone.
+
+The run starts by checking the tag against **all four files that carry the
+version** — `package.json`, `tauri.conf.json`, `Cargo.toml`, `snapcraft.yaml` —
+and stops if any disagrees. One file drifting would otherwise produce a snap
+whose version contradicts the release page.
+
+Snaps are deliberately **not** attached to the GitHub Release. Installing one
+from a file means `snap install --dangerous`, which skips assertions and never
+auto-updates: worse than the store in every way it differs.
+
+### The store credential
+
+The store upload needs a `SNAPCRAFT_STORE_CREDENTIALS` repository secret. Mint
+one with the narrowest useful ACL and an expiry:
+
+```bash
+snapcraft export-login --acls package_access,package_push,package_release \
+  --expires 2027-01-01 -
+```
+
+Paste the output into **Settings → Secrets and variables → Actions**. Without
+it the store job fails loudly rather than skipping quietly, because a release
+that silently reached only half its channels is worse than one that stops.
+
 ## Windows
 
 `.github/workflows/ci.yml` builds an NSIS installer on a `windows-latest`

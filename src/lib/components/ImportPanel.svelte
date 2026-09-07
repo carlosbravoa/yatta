@@ -215,7 +215,11 @@
     font-size: 12.5px;
     line-height: 1.65;
   }
-  textarea:focus { border-color: var(--accent); background: var(--surface); }
+  textarea:focus {
+    border-color: var(--accent);
+    background: var(--surface);
+    box-shadow: var(--focus-ring);
+  }
   textarea::placeholder { color: var(--text-faint); }
 
   .rows {

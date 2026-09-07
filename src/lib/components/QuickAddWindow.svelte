@@ -13,6 +13,9 @@
   let busy = $state(false);
   let error = $state<string | null>(null);
   let input = $state<HTMLInputElement | undefined>();
+  /* Enter means "new paragraph" in the notes and "save" in the title, so the
+     button shows whichever shortcut applies where the caret currently is. */
+  let notesFocused = $state(false);
 
   const parsed = $derived(parseQuickAdd(value));
   const hasMeta = $derived(
@@ -116,42 +119,53 @@
     class="body"
     bind:value={description}
     onkeydown={onDescriptionKeydown}
+    onfocus={() => (notesFocused = true)}
+    onblur={() => (notesFocused = false)}
     placeholder="Notes, links, a checklist… (optional)"
     aria-label="Description"
     spellcheck="false"
     disabled={busy}
   ></textarea>
 
-  {#if error}
-    <div class="line error"><Icon name="alert" size={12} />{error}</div>
-  {:else if hasMeta}
-    <div class="line">
-      <strong>{parsed.title || "…"}</strong>
-      {#if parsed.due}
-        <span class="chip due"><Icon name="calendar" size={11} />{formatDue(parsed.due)}</span>
-      {/if}
-      {#if parsed.priority !== "none"}
-        <span class="chip prio" data-p={parsed.priority}>
-          <Icon name="flag" size={11} />{PRIORITY_LABEL[parsed.priority]}
-        </span>
-      {/if}
-      {#each parsed.tags as tag (tag)}
-        <span class="tag" style={tagStyle(tag)}>#{tag}</span>
-      {/each}
-    </div>
-  {:else}
-    <div class="line muted">
-      <span><kbd>↵</kbd> to add</span>
-      <span class="sep">·</span>
-      <span><code>!high</code> priority</span>
-      <span class="sep">·</span>
-      <span><code>#tag</code></span>
-      <span class="sep">·</span>
-      <span><code>tomorrow</code> or <code>@15 sep</code></span>
-      <span class="sep">·</span>
-      <span><kbd>ctrl</kbd><kbd>↵</kbd> from the notes</span>
-    </div>
-  {/if}
+  <div class="footer">
+    {#if error}
+      <div class="line error"><Icon name="alert" size={12} />{error}</div>
+    {:else if hasMeta}
+      <div class="line">
+        <strong>{parsed.title || "…"}</strong>
+        {#if parsed.due}
+          <span class="chip due"><Icon name="calendar" size={11} />{formatDue(parsed.due)}</span>
+        {/if}
+        {#if parsed.priority !== "none"}
+          <span class="chip prio" data-p={parsed.priority}>
+            <Icon name="flag" size={11} />{PRIORITY_LABEL[parsed.priority]}
+          </span>
+        {/if}
+        {#each parsed.tags as tag (tag)}
+          <span class="tag" style={tagStyle(tag)}>#{tag}</span>
+        {/each}
+      </div>
+    {:else}
+      <div class="line muted">
+        <span><code>!high</code> priority</span>
+        <span class="sep">·</span>
+        <span><code>#tag</code></span>
+        <span class="sep">·</span>
+        <span><code>tomorrow</code> or <code>@15 sep</code></span>
+      </div>
+    {/if}
+
+    <button
+      class="btn primary go"
+      onclick={submit}
+      disabled={busy || !parsed.title.trim()}
+      title={notesFocused ? "Add the task (Ctrl+Enter)" : "Add the task (Enter)"}
+    >
+      Add
+      {#if notesFocused}<kbd class="sc">ctrl</kbd>{/if}
+      <kbd class="sc">&crarr;</kbd>
+    </button>
+  </div>
 </div>
 
 <style>
@@ -199,7 +213,7 @@
     border-color: color-mix(in srgb, var(--accent) 55%, transparent);
     background: var(--surface);
     color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    box-shadow: var(--focus-ring);
   }
 
   input {
@@ -240,25 +254,57 @@
     line-height: 1.55;
     color: var(--text);
     outline: none;
-    transition: border-color 120ms var(--ease), background 120ms var(--ease);
+    transition: border-color 120ms var(--ease), background 120ms var(--ease),
+      box-shadow 120ms var(--ease);
   }
-  .body:focus { border-color: var(--accent); background: var(--surface); }
+  .body:focus {
+    border-color: var(--accent);
+    background: var(--surface);
+    box-shadow: var(--focus-ring);
+  }
   .body::placeholder { color: var(--text-faint); }
+
+  .footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px 14px;
+    flex: none;
+  }
 
   .line {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
-    padding: 0 16px 14px;
+    flex: 1;
+    min-width: 0;
     font-size: 12.5px;
     color: var(--text-dim);
   }
   .line strong { font-weight: 600; color: var(--text); }
   .line.muted { color: var(--text-faint); gap: 5px; }
-  .line.muted kbd { padding: 1px 5px; }
   .line.error { color: var(--p-urgent); }
   .sep { opacity: 0.5; }
+
+  .go {
+    flex: none;
+    height: 28px;
+    font-size: 13px;
+    gap: 6px;
+  }
+  .go:disabled { opacity: 0.5; cursor: default; }
+  /* The kbd hints elsewhere in this window are bordered chips on a pale
+     background; on the filled button that would read as a second control, so
+     these are plain glyphs. */
+  .go .sc {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font-size: 11px;
+    opacity: 0.8;
+  }
 
   code {
     font-size: 11.5px;

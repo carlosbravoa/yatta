@@ -209,13 +209,15 @@
     background: var(--surface-2);
     border: 1px solid transparent;
     color: var(--text-faint);
-    transition: width 160ms var(--ease), border-color 120ms var(--ease), background 120ms var(--ease);
+    transition: width 160ms var(--ease), border-color 120ms var(--ease),
+      background 120ms var(--ease), box-shadow 120ms var(--ease);
   }
   .search:focus-within {
     width: 240px;
     border-color: var(--accent);
     background: var(--surface);
     color: var(--accent);
+    box-shadow: var(--focus-ring);
   }
   .search input {
     flex: 1;

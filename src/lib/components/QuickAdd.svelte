@@ -119,7 +119,7 @@
   }
   .quickadd:focus-within {
     border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-    box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-sm);
+    box-shadow: var(--focus-ring), var(--shadow-sm);
   }
 
   .bar {

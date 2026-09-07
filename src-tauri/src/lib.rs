@@ -146,8 +146,9 @@ pub fn open_quick_add(app: &AppHandle) {
         WebviewUrl::App("index.html?window=quickadd".into()),
     )
     .title("Quick add")
-    // Tall enough for a title line, a few lines of notes, and the hint row.
-    .inner_size(620.0, 262.0)
+    // Tall enough for a title line, a few lines of notes, and the footer row --
+    // which now carries the Add button, so it is taller than the bare hints.
+    .inner_size(620.0, 276.0)
     .decorations(false)
     .transparent(true)
     .always_on_top(true)

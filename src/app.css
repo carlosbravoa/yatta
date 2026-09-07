@@ -42,6 +42,10 @@
   --radius-lg: 18px;
   --radius-sm: 8px;
 
+  /* Every text field lights up the same way: a coloured border plus this
+     halo. Named once so the wrappers cannot drift apart. */
+  --focus-ring: 0 0 0 3px var(--accent-soft);
+
   --shadow-sm: 0 1px 2px rgba(16, 20, 45, 0.05);
   --shadow: 0 2px 8px rgba(16, 20, 45, 0.07), 0 1px 2px rgba(16, 20, 45, 0.05);
   --shadow-lg: 0 16px 48px rgba(16, 20, 45, 0.16), 0 2px 8px rgba(16, 20, 45, 0.08);
@@ -168,6 +172,18 @@ input, textarea {
   border-radius: 6px;
 }
 
+/* A text field is never just the input: it sits in a wrapper holding the icon,
+   the clear button, the tag chips, and that wrapper is what lights up on focus.
+   Letting the input draw the generic ring as well nested a second outline
+   inside the first, hugging the text and cutting the icon out of it. The
+   wrapper owns the focus state; the input inside stays bare.
+
+   Checkboxes and radios have no such wrapper, so they keep the default ring. */
+input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+
 /* ── Scrollbars ───────────────────────────────────────────────────────────── */
 
 * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
@@ -212,9 +228,14 @@ input, textarea {
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   border: 1px solid transparent;
-  transition: border-color 120ms var(--ease), background 120ms var(--ease);
+  transition: border-color 120ms var(--ease), background 120ms var(--ease),
+    box-shadow 120ms var(--ease);
 }
-.field:focus-within, .field:focus { border-color: var(--accent); background: var(--surface); }
+.field:focus-within, .field:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: var(--focus-ring);
+}
 
 .tag {
   display: inline-flex;

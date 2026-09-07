@@ -56,6 +56,13 @@ pub fn apply(enabled: bool) -> Result<(), String> {
         };
     }
 
+    // A debug build lives at target/debug and loads its UI from the vite dev
+    // server, so an entry pointing at it comes up with "connection refused" at
+    // the next login, long after that dev session ended. Refuse to plant one.
+    if cfg!(debug_assertions) {
+        return Err("not writing an autostart entry from a development build".into());
+    }
+
     std::fs::create_dir_all(&dir).map_err(|e| format!("could not create {}: {e}", dir.display()))?;
     let entry = format!(
         "[Desktop Entry]\n\
@@ -90,6 +97,10 @@ pub fn apply(enabled: bool) -> Result<(), String> {
     cmd.creation_flags(CREATE_NO_WINDOW);
 
     if enabled {
+        // See the Linux branch: a dev build must not claim the Run key.
+        if cfg!(debug_assertions) {
+            return Err("not writing an autostart entry from a development build".into());
+        }
         let exe = std::env::current_exe()
             .map_err(|e| format!("could not find this executable: {e}"))?;
         // Quoted: the path routinely contains spaces on Windows.

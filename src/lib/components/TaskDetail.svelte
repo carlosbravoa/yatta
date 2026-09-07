@@ -1,7 +1,7 @@
 <script lang="ts">
   import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
   import { marked } from "marked";
-  import { fly } from "svelte/transition";
+  import { untrack } from "svelte";
   import { api } from "../api";
   import { checklistProgress, toggleChecklistItem } from "../checklist";
   import { tagStyle } from "../colors";
@@ -17,14 +17,27 @@
     return JSON.parse(JSON.stringify($state.snapshot(t))) as Task;
   }
 
-  /* The panel edits a local draft, seeded once from the task it was opened
-     with. App.svelte wraps this component in `{#key task.path}`, so choosing a
-     different task remounts it with a fresh draft rather than reconciling one
-     mid-edit. Capturing the initial value here is therefore deliberate. */
+  /* The panel edits a local draft, seeded from the task it was opened with.
+     App.svelte wraps this component in `{#key task.path}`, so choosing a
+     different task remounts it with a fresh draft; capturing the initial value
+     here is therefore deliberate. */
   // svelte-ignore state_referenced_locally
   let draft = $state<Task>(clone(task));
   // svelte-ignore state_referenced_locally
   let dueText = $state(task.due ? formatLong(task.due) : "");
+
+  /* Seeding it is not enough on its own, though. The draft used to be left
+     alone from then on, which kept an edit in flight safe from every vault
+     reload but also let it go stale: tick the checkbox in the list while this
+     panel is open and the draft still said "todo", so closing the panel wrote
+     that back and undid the completion.
+
+     So the draft follows the task for every field you have *not* edited here.
+     This set is what tells the two apart. It empties once a save has been
+     sent, at which point the whole draft is in sync again. */
+  type Field = "title" | "status" | "priority" | "due" | "tags" | "description";
+  let edited = new Set<Field>();
+
   let tagInput = $state("");
   let titleEl = $state<HTMLTextAreaElement | undefined>();
   /* Open straight into preview when the description is a checklist: the point
@@ -96,6 +109,38 @@
     if (saveTimer !== undefined) flush();
   });
 
+  /* `task` is the store's live copy, so this reruns whenever it changes --
+     the checkbox in the list, an undo, the watcher picking up an edit on disk.
+     Fields you have touched here are left alone; the rest follow. */
+  $effect(() => {
+    // Read field by field so this depends on the values, not just on the store
+    // handing back a fresh object...
+    const live = clone(task);
+    // ...and write inside untrack, so the draft's own values never feed back
+    // in and retrigger this.
+    untrack(() => {
+      if (!edited.has("title")) draft.title = live.title;
+      if (!edited.has("status")) {
+        draft.status = live.status;
+        draft.completed = live.completed;
+      }
+      if (!edited.has("priority")) draft.priority = live.priority;
+      if (!edited.has("due") && live.due !== draft.due) {
+        draft.due = live.due;
+        dueText = live.due ? formatLong(live.due) : "";
+      }
+      if (!edited.has("tags")) draft.tags = live.tags;
+      if (!edited.has("description")) draft.description = live.description;
+
+      // Never edited here, always the file's own: adopting them keeps a later
+      // save pointing at the right file.
+      draft.id = live.id;
+      draft.path = live.path;
+      draft.archived = live.archived;
+      draft.adopted = live.adopted;
+    });
+  });
+
   /* marked emits task-list checkboxes as `disabled`. Strip that so they can be
      ticked: the click handler below rewrites the source line, so the file stays
      the source of truth rather than the DOM. */
@@ -121,6 +166,7 @@
     if (index < 0) return;
 
     draft.description = toggleChecklistItem(draft.description, index);
+    edited.add("description");
     flush();
   }
 
@@ -160,7 +206,7 @@
       draft.title = draft.title.replace(/[\r\n]+/g, " ");
     }
     autogrow();
-    scheduleSave();
+    scheduleSave("title");
   }
 
   function titleKeydown(event: KeyboardEvent) {
@@ -171,7 +217,8 @@
     }
   }
 
-  function scheduleSave() {
+  function scheduleSave(field: Field) {
+    edited.add(field);
     clearTimeout(saveTimer);
     saveTimer = setTimeout(flush, 450);
   }
@@ -179,6 +226,13 @@
   async function flush() {
     clearTimeout(saveTimer);
     if (!draft.title.trim()) return;
+    // Nothing was edited here, so there is nothing this panel should write.
+    // Blur and close both call through to here on a panel you only read.
+    if (edited.size === 0) return;
+
+    // Cleared before the await, not after: anything you type while the save is
+    // in flight re-marks its own field rather than being dropped.
+    edited.clear();
     const saved = await store.save(draft);
     if (saved) {
       draft.id = saved.id;
@@ -195,18 +249,18 @@
   function setStatus(status: Status) {
     draft.status = status;
     draft.completed = status === "done" ? todayISO() : null;
-    scheduleSave();
+    scheduleSave("status");
   }
 
   function setPriority(priority: Priority) {
     draft.priority = draft.priority === priority ? "none" : priority;
-    scheduleSave();
+    scheduleSave("priority");
   }
 
   function setDue(iso: string | null) {
     draft.due = iso;
     dueText = iso ? formatLong(iso) : "";
-    scheduleSave();
+    scheduleSave("due");
   }
 
   /** Commit whatever the user typed into the deadline box. */
@@ -230,14 +284,14 @@
     const clean = name.trim().replace(/^#/, "").toLowerCase();
     if (clean && !draft.tags.includes(clean)) {
       draft.tags.push(clean);
-      scheduleSave();
+      scheduleSave("tags");
     }
     tagInput = "";
   }
 
   function removeTag(name: string) {
     draft.tags = draft.tags.filter((t) => t !== name);
-    scheduleSave();
+    scheduleSave("tags");
   }
 
   function tagKeydown(event: KeyboardEvent) {
@@ -294,12 +348,10 @@
 
 <svelte:window onresize={onResize} />
 
-<aside
-  class="panel"
-  class:resizing
-  style="width: {applied}px"
-  transition:fly={{ x: 380, duration: 240, opacity: 1 }}
->
+<!-- The slide lives on the host in App.svelte, not here: this element is
+     recreated whenever you pick a different task, and a transition on it would
+     play an outro and an intro at the same time. -->
+<aside class="panel" class:resizing style="width: {applied}px">
   <!-- A focusable `separator` is the WAI-ARIA window-splitter pattern: with
        aria-valuenow/min/max it is a widget, not decoration, and the arrow keys
        below drive it. Svelte's rule does not model that case. -->
@@ -454,7 +506,7 @@
         <textarea
           class="body"
           bind:value={draft.description}
-          oninput={scheduleSave}
+          oninput={() => scheduleSave("description")}
           onblur={flush}
           placeholder="Notes, links, checklists — plain markdown, stored in the file body."
           aria-label="Description"
@@ -608,6 +660,15 @@
     min-height: 1.35em;
   }
   .title::placeholder { color: var(--text-faint); }
+  /* No wrapper around this one, and no border to colour: the autogrow measure
+     sets height from scrollHeight, which a border would leave short. So the
+     title keeps a ring -- set wider than the default, since with no background
+     behind it a tight outline reads as a box drawn round the words. */
+  .title:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+    outline-offset: 5px;
+    border-radius: var(--radius-sm);
+  }
 
   .field-row {
     display: flex;
@@ -637,8 +698,14 @@
     background: var(--surface-2);
     border: 1px solid transparent;
     font-size: 13px;
+    transition: border-color 120ms var(--ease), background 120ms var(--ease),
+      box-shadow 120ms var(--ease);
   }
-  .dueedit input:focus { border-color: var(--accent); background: var(--surface); }
+  .dueedit input:focus {
+    border-color: var(--accent);
+    background: var(--surface);
+    box-shadow: var(--focus-ring);
+  }
 
   .quick {
     display: flex;
@@ -692,7 +759,11 @@
     background: var(--surface-2);
     border: 1px solid transparent;
   }
-  .chips:focus-within { border-color: var(--accent); background: var(--surface); }
+  .chips:focus-within {
+    border-color: var(--accent);
+    background: var(--surface);
+    box-shadow: var(--focus-ring);
+  }
   .chips input { flex: 1; min-width: 80px; height: 20px; font-size: 13px; }
 
   .tagx {
@@ -746,7 +817,11 @@
     font-size: 13.5px;
     line-height: 1.6;
   }
-  .body:focus { border-color: var(--accent); background: var(--surface); }
+  .body:focus {
+    border-color: var(--accent);
+    background: var(--surface);
+    box-shadow: var(--focus-ring);
+  }
 
   .rendered {
     min-height: 180px;

@@ -187,11 +187,20 @@
   </main>
 
   {#if openTask}
-    <!-- Keyed on the path so picking another task remounts the editor with a
-         clean draft instead of reconciling one that may be mid-edit. -->
-    {#key openTask.path}
-      <TaskDetail task={openTask} />
-    {/key}
+    <!-- Two blocks, and the split matters. The host carries the slide and
+         lasts as long as the panel is open, so picking another task only swaps
+         what is inside it. With the transition one level down, on the keyed
+         editor itself, switching tasks played an outro and an intro at once:
+         both panels sat in this flex row together, shoving the list aside and
+         sliding over each other before settling.
+
+         The key stays because picking another task must remount the editor
+         with a clean draft rather than reconcile one that may be mid-edit. -->
+    <div class="detailhost" transition:fly={{ x: 380, duration: 240, opacity: 1 }}>
+      {#key openTask.path}
+        <TaskDetail task={openTask} />
+      {/key}
+    </div>
   {/if}
 </div>
 
@@ -228,6 +237,12 @@
     display: flex;
     height: 100%;
     background: var(--bg);
+  }
+
+  /* Shrink-wraps the panel, which sets its own width. */
+  .detailhost {
+    display: flex;
+    flex: none;
   }
 
   main {

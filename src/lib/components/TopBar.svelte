@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { undoable } from "../history";
   import { viewToMarkdown } from "../share";
   import { store } from "../store.svelte";
   import Icon from "./Icon.svelte";
@@ -76,6 +77,7 @@
   <div class="search" class:active={store.query.length > 0}>
     <Icon name="search" size={14} />
     <input
+      use:undoable
       bind:this={searchInput}
       bind:value={store.query}
       placeholder="Search"

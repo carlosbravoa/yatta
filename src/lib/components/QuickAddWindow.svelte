@@ -4,6 +4,7 @@
   import { api } from "../api";
   import { tagStyle } from "../colors";
   import { formatDue } from "../dates";
+  import { undoable } from "../history";
   import { parseQuickAdd } from "../quickadd";
   import { emptyTask, PRIORITY_LABEL } from "../types";
   import Icon from "./Icon.svelte";
@@ -104,6 +105,7 @@
   <div class="bar">
     <Icon name="plus" size={18} stroke={2} />
     <input
+      use:undoable
       bind:this={input}
       bind:value
       {onkeydown}
@@ -117,6 +119,7 @@
 
   <textarea
     class="body"
+    use:undoable
     bind:value={description}
     onkeydown={onDescriptionKeydown}
     onfocus={() => (notesFocused = true)}

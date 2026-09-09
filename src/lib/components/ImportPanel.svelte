@@ -2,6 +2,7 @@
   import { fade, scale } from "svelte/transition";
   import { tagStyle } from "../colors";
   import { formatDue } from "../dates";
+  import { undoable } from "../history";
   import { parseImport } from "../importer";
   import { store } from "../store.svelte";
   import { PRIORITY_LABEL } from "../types";
@@ -71,6 +72,7 @@
       <label class="paneheader" for="import-text">Paste here</label>
       <textarea
         id="import-text"
+        use:undoable
         bind:this={area}
         bind:value={text}
         spellcheck="false"

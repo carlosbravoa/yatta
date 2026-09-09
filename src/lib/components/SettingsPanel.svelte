@@ -3,6 +3,7 @@
   import { open } from "@tauri-apps/plugin-dialog";
   import { openPath, openUrl } from "@tauri-apps/plugin-opener";
   import { fade, scale } from "svelte/transition";
+  import { undoable } from "../history";
   import { store } from "../store.svelte";
   import Icon from "./Icon.svelte";
 
@@ -254,6 +255,7 @@
             </div>
             <input
               class="field hk"
+              use:undoable
               bind:value={hotkeyDraft}
               onblur={() => store.updateSettings({ hotkey: hotkeyDraft })}
               onkeydown={(e) => e.key === "Enter" && e.currentTarget.blur()}

@@ -6,6 +6,7 @@
   import { checklistProgress, toggleChecklistItem } from "../checklist";
   import { tagStyle } from "../colors";
   import { addDays, formatLong, toISO, todayISO } from "../dates";
+  import { undoable } from "../history";
   import { matchDate } from "../quickadd";
   import { store } from "../store.svelte";
   import { PRIORITIES, PRIORITY_LABEL, type Priority, type Status, type Task } from "../types";
@@ -402,6 +403,7 @@
 
     <textarea
       class="title"
+      use:undoable
       bind:this={titleEl}
       bind:value={draft.title}
       oninput={onTitleInput}
@@ -416,6 +418,7 @@
       <span class="flabel"><Icon name="calendar" size={13} />Deadline</span>
       <div class="dueedit">
         <input
+          use:undoable
           bind:value={dueText}
           onblur={commitDue}
           onkeydown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
@@ -462,6 +465,7 @@
             </span>
           {/each}
           <input
+            use:undoable
             bind:value={tagInput}
             onkeydown={tagKeydown}
             onblur={() => tagInput.trim() && addTag(tagInput)}
@@ -472,7 +476,10 @@
         {#if suggestions.length}
           <div class="suggest">
             {#each suggestions as s (s)}
-              <button onclick={() => addTag(s)}>#{s}</button>
+              <!-- Keep the focus in the box: blurring it first would commit the
+                   half-typed tag and take this button out of the DOM before the
+                   click ever landed on it. -->
+              <button onmousedown={(e) => e.preventDefault()} onclick={() => addTag(s)}>#{s}</button>
             {/each}
           </div>
         {/if}
@@ -505,6 +512,7 @@
       {:else}
         <textarea
           class="body"
+          use:undoable
           bind:value={draft.description}
           oninput={() => scheduleSave("description")}
           onblur={flush}

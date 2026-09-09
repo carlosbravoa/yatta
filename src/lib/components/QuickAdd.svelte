@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tagStyle } from "../colors";
   import { formatDue } from "../dates";
+  import { undoable } from "../history";
   import { parseQuickAdd } from "../quickadd";
   import { store } from "../store.svelte";
   import { emptyTask, PRIORITY_LABEL } from "../types";
@@ -74,6 +75,7 @@
   <div class="bar">
     <Icon name="plus" size={17} stroke={2} />
     <input
+      use:undoable
       bind:this={input}
       bind:value
       {onkeydown}

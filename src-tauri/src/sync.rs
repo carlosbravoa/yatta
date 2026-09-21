@@ -129,6 +129,10 @@ pub struct Engine {
     /// One sync at a time. A timer tick landing on a manual click must not
     /// start a second merge in the same repository.
     busy: AtomicBool,
+    /// A request that arrived while one was running. Dropping it would lose
+    /// the "after changes" push that lands during a slow fetch -- and with the
+    /// interval set to "only when I ask", nothing would ever pick it up.
+    pending: AtomicBool,
     commit_ticket: AtomicU64,
     sync_ticket: AtomicU64,
     last_run: Mutex<Option<Instant>>,
@@ -141,6 +145,7 @@ impl Engine {
             config: Mutex::new(Config::new(root)),
             state: Mutex::new(SyncState::default()),
             busy: AtomicBool::new(false),
+            pending: AtomicBool::new(false),
             commit_ticket: AtomicU64::new(0),
             sync_ticket: AtomicU64::new(0),
             last_run: Mutex::new(None),
@@ -322,7 +327,11 @@ impl Engine {
             return;
         }
         if self.busy.swap(true, Ordering::SeqCst) {
-            return; // a sync is already in flight
+            // A sync is already in flight. It committed and fetched before
+            // this request's changes existed, so it cannot be trusted to carry
+            // them; note the request and go round again when it finishes.
+            self.pending.store(true, Ordering::SeqCst);
+            return;
         }
 
         let result = self.sync_once(&config, reason);
@@ -338,7 +347,6 @@ impl Engine {
         if let Ok(mut last) = self.last_run.lock() {
             *last = Some(Instant::now());
         }
-        self.busy.store(false, Ordering::SeqCst);
 
         match result {
             Ok(outcome) => {
@@ -368,6 +376,13 @@ impl Engine {
             }
         }
         self.probe();
+
+        self.busy.store(false, Ordering::SeqCst);
+        // Whatever was asked for while this one ran. Now, not at the next
+        // tick: the tick may be an hour off, or switched off altogether.
+        if self.pending.swap(false, Ordering::SeqCst) {
+            self.run_now("queued");
+        }
     }
 
     fn sync_once(&self, config: &Config, reason: &str) -> Result<Outcome, String> {
@@ -600,6 +615,12 @@ fn explain(error: &str) -> String {
                 SSH key or a credential helper and try again."
             .into();
     }
+    if e.contains("host key verification failed") {
+        return "The remote's SSH host key is not on record yet, and a background sync cannot \
+                accept one. Run `git fetch` in the vault folder once from a terminal, answer \
+                yes, then sync again."
+            .into();
+    }
     if e.contains("could not resolve host") || e.contains("network is unreachable") || e.contains("timed out")
     {
         return "Could not reach the remote. Check the connection and try again.".into();
@@ -828,6 +849,31 @@ mod tests {
             .collect();
         assert!(titles.contains(&"Buy milk".to_string()), "got {titles:?}");
         assert!(titles.contains(&"Collect the parcel".to_string()), "got {titles:?}");
+        let _ = std::fs::remove_dir_all(&pair.dir);
+    }
+
+    #[test]
+    fn a_request_during_a_sync_is_kept_and_run_afterwards() {
+        let Some(pair) = set_up() else { return };
+        std::fs::write(pair.a.join("report.md"), task_file("todo", "low", "Draft it.")).unwrap();
+        let (engine, config) = engine_for(&pair.a);
+        engine.configure(config);
+
+        // Something is mid-sync; a request arriving now must not vanish.
+        engine.busy.store(true, Ordering::SeqCst);
+        engine.run_now("after changes");
+        assert!(engine.pending.load(Ordering::SeqCst), "queued, not dropped");
+        assert!(engine.last_run.lock().unwrap().is_none(), "and not run on top of the other");
+
+        // When the running one ends it drains the queue: the queued request
+        // runs, and pushes what the first could not have known about.
+        engine.busy.store(false, Ordering::SeqCst);
+        engine.run_now("first");
+        assert!(!engine.pending.load(Ordering::SeqCst), "the queue is emptied");
+        assert!(engine.last_run.lock().unwrap().is_some());
+        assert!(!engine.busy.load(Ordering::SeqCst), "and the engine is free again");
+        let (ahead, _) = git::divergence(&pair.a, "origin/main");
+        assert_eq!(ahead, 0, "the task was pushed");
         let _ = std::fs::remove_dir_all(&pair.dir);
     }
 

@@ -273,6 +273,32 @@ pub fn interrupted(root: &Path) -> Option<&'static str> {
 // Changing it
 // ---------------------------------------------------------------------------
 
+/// `-c` flags that give git someone to commit as, on a machine that has not
+/// told it.
+///
+/// A machine with no `user.email` cannot commit at all, and telling someone to
+/// configure git before their task list will save is a poor trade. Only used
+/// as a fallback: a configured identity always wins. Empty when one exists.
+///
+/// Every command that writes a commit needs this, not just `commit`: a merge
+/// that is not a fast-forward makes a commit of its own, and refuses for the
+/// same reason. Inside the snap `HOME` is `$SNAP_USER_DATA`, so the user's
+/// real `~/.gitconfig` is never read and this fallback is the ordinary case,
+/// not the odd one.
+fn identity(root: &Path) -> Vec<String> {
+    let has_identity = quiet(root, &["config", "--get", "user.email"])
+        .is_some_and(|o| o.ok() && !o.line().is_empty());
+    if has_identity {
+        return Vec::new();
+    }
+    vec![
+        "-c".into(),
+        "user.name=yatta".into(),
+        "-c".into(),
+        "user.email=yatta@localhost".into(),
+    ]
+}
+
 /// Commit everything in the vault. `Ok(false)` means there was nothing to
 /// commit, which is the common case and not an error.
 ///
@@ -284,16 +310,7 @@ pub fn commit_all(root: &Path, message: &str) -> Result<bool, String> {
         return Err(add.why());
     }
 
-    let mut args: Vec<String> = Vec::new();
-    // A machine with no `user.email` cannot commit at all, and telling someone
-    // to configure git before their task list will save is a poor trade. Only
-    // used as a fallback: a configured identity always wins.
-    let has_identity = quiet(root, &["config", "--get", "user.email"])
-        .is_some_and(|o| o.ok() && !o.line().is_empty());
-    if !has_identity {
-        args.extend(["-c".into(), "user.name=yatta".into()]);
-        args.extend(["-c".into(), "user.email=yatta@localhost".into()]);
-    }
+    let mut args = identity(root);
     args.extend(["commit".into(), "-m".into(), message.into()]);
 
     let refs: Vec<&str> = args.iter().map(String::as_str).collect();
@@ -346,7 +363,10 @@ pub enum Merged {
 
 pub fn merge(root: &Path, remote_ref: &str) -> Merged {
     let message = format!("yatta: merge {remote_ref}");
-    let out = match run(root, &["merge", "--no-edit", "-m", &message, remote_ref], LOCAL) {
+    let mut args = identity(root);
+    args.extend(["merge".into(), "--no-edit".into(), "-m".into(), message, remote_ref.into()]);
+    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let out = match run(root, &refs, LOCAL) {
         Ok(out) => out,
         Err(e) => return Merged::Failed(e),
     };
@@ -397,7 +417,10 @@ pub fn remove(root: &Path, path: &str) -> bool {
 
 /// Finish a merge whose conflicts have been resolved in the working tree.
 pub fn commit_merge(root: &Path, message: &str) -> Result<(), String> {
-    let out = run(root, &["commit", "--no-edit", "-m", message], LOCAL)?;
+    let mut args = identity(root);
+    args.extend(["commit".into(), "--no-edit".into(), "-m".into(), message.into()]);
+    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let out = run(root, &refs, LOCAL)?;
     if out.ok() {
         Ok(())
     } else {

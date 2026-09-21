@@ -115,7 +115,10 @@
     {/if}
   </div>
 
-  {#if store.settings.git_sync && store.sync.available}
+  <!-- The same three conditions the backend applies. Without the auto-commit
+       one, switching commits off left a button that set itself spinning and
+       was never answered: the engine had already stood down. -->
+  {#if store.settings.git_sync && store.settings.git_autocommit && store.sync.available}
     <button
       class="btn icon sync"
       class:spinning={syncing}

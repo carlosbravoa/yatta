@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Settings, Task, VaultInfo } from "./types";
+import type { Settings, SyncState, Task, VaultInfo } from "./types";
 
 export const api = {
   getSettings: () => invoke<Settings>("get_settings"),
@@ -18,4 +18,9 @@ export const api = {
     invoke<Task>("archive_task", { path, title }),
   archiveDone: () => invoke<number>("archive_done"),
   absolutePath: (path: string) => invoke<string>("absolute_path", { path }),
+  syncNow: () => invoke<SyncState>("sync_now"),
+  syncState: () => invoke<SyncState>("sync_state"),
+  /** `keep` is "ours", "theirs" or "both". */
+  resolveConflict: (path: string, keep: string) =>
+    invoke<Task>("resolve_conflict", { path, keep }),
 };

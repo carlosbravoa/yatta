@@ -139,6 +139,7 @@
       draft.path = live.path;
       draft.archived = live.archived;
       draft.adopted = live.adopted;
+      draft.conflicted = live.conflicted;
     });
   });
 
@@ -245,6 +246,20 @@
   function close() {
     flush();
     store.openPath = null;
+  }
+
+  /* Settling a conflict rewrites the notes, so anything half-typed here would
+     be written back over the resolution a moment later. Flushing first, then
+     taking the file's answer as the new draft, is what keeps the two in step.
+     Preview goes off as well: the markers are only readable as source. */
+  async function settle(keep: "ours" | "theirs" | "both") {
+    await flush();
+    const saved = await store.resolveConflict(draft.path, keep);
+    if (saved) {
+      draft.description = saved.description;
+      draft.conflicted = false;
+      edited.delete("description");
+    }
   }
 
   function setStatus(status: Status) {
@@ -394,6 +409,24 @@
   </header>
 
   <div class="scroll">
+    {#if draft.conflicted}
+      <div class="notice conflict">
+        <Icon name="alert" size={14} />
+        <div class="noticebody">
+          <span>
+            Two devices edited these notes at once. Both versions are kept below,
+            between <code>&lt;&lt;&lt;</code> and <code>&gt;&gt;&gt;</code> markers — keep one, or
+            keep both and tidy up.
+          </span>
+          <div class="fixes">
+            <button onclick={() => settle("both")}>Keep both</button>
+            <button onclick={() => settle("ours")}>Keep this device's</button>
+            <button onclick={() => settle("theirs")}>Keep the other's</button>
+          </div>
+        </div>
+      </div>
+    {/if}
+
     {#if draft.adopted}
       <div class="notice">
         <Icon name="alert" size={14} />
@@ -649,6 +682,28 @@
     color: color-mix(in srgb, var(--today) 80%, var(--text));
     background: color-mix(in srgb, var(--today) 13%, transparent);
   }
+  .notice.conflict {
+    color: color-mix(in srgb, var(--p-urgent) 82%, var(--text));
+    background: color-mix(in srgb, var(--p-urgent) 12%, transparent);
+  }
+  .noticebody { display: flex; flex-direction: column; gap: 8px; }
+  .notice code {
+    font-size: 11.5px;
+    padding: 0 3px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--text) 10%, transparent);
+  }
+  .fixes { display: flex; flex-wrap: wrap; gap: 6px; }
+  .fixes button {
+    padding: 4px 9px;
+    border-radius: var(--radius-sm);
+    border: 1px solid color-mix(in srgb, var(--p-urgent) 35%, transparent);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 550;
+  }
+  .fixes button:hover { border-color: var(--p-urgent); color: var(--p-urgent); }
 
   textarea {
     width: 100%;

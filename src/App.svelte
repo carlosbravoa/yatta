@@ -15,6 +15,7 @@
   import TaskList from "./lib/components/TaskList.svelte";
   import TopBar from "./lib/components/TopBar.svelte";
   import { store } from "./lib/store.svelte";
+  import type { SyncState } from "./lib/types";
   import { mark } from "./lib/timing";
 
   let quickadd = $state<QuickAdd | undefined>();
@@ -50,6 +51,9 @@
       // saved a task, which the file watcher deliberately ignores as our own
       // write and so would not otherwise report.
       listen("vault-changed", () => store.reload()),
+      // Sync runs on its own thread and reports as it goes, so the button can
+      // show what is actually happening rather than a guess.
+      listen<SyncState>("sync-state", (event) => store.applySync(event.payload)),
     ];
 
     return () => {

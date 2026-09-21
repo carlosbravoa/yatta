@@ -1,7 +1,9 @@
 mod autostart;
 mod git;
+mod merge;
 mod reminders;
 mod settings;
+mod sync;
 mod task;
 mod vault;
 mod watcher;
@@ -41,7 +43,7 @@ pub struct AppState {
     pub settings: Mutex<Settings>,
     watcher: Mutex<Option<notify::RecommendedWatcher>>,
     last_self_write: Arc<AtomicI64>,
-    committer: Arc<git::Committer>,
+    sync: Arc<sync::Engine>,
 }
 
 impl AppState {
@@ -211,7 +213,7 @@ pub struct VaultInfo {
     had_settings: bool,
 }
 
-/// Bring the vault, watcher, git committer and hotkey in line with the current
+/// Bring the vault, watcher, git engine and hotkey in line with the current
 /// settings. Safe to call repeatedly; switching vaults goes through here.
 fn apply_runtime(app: &AppHandle, state: &AppState) -> Result<(), String> {
     let settings = {
@@ -233,9 +235,15 @@ fn apply_runtime(app: &AppHandle, state: &AppState) -> Result<(), String> {
         }
     }
 
-    state
-        .committer
-        .configure(root.clone(), settings.git_autocommit);
+    state.sync.configure(sync::Config {
+        root: root.clone(),
+        autocommit: settings.git_autocommit,
+        // Syncing is layered on committing: there is nothing to push until
+        // something has been committed, so the switch implies the other.
+        sync: settings.git_sync && settings.git_autocommit,
+        interval_mins: settings.git_sync_interval_mins,
+        on_change: settings.git_sync_on_change,
+    });
 
     // Reconcile the autostart entry with the setting. A failure here is worth
     // reporting but must not stop the rest of startup.
@@ -303,6 +311,7 @@ fn list_tasks(state: State<'_, AppState>) -> Result<Vec<Task>, String> {
 #[tauri::command]
 fn save_task(state: State<'_, AppState>, mut task: Task) -> Result<Task, String> {
     let root = state.vault()?;
+    let _guard = vault::lock();
     state.mark_write();
 
     if task.id.trim().is_empty() {
@@ -314,7 +323,7 @@ fn save_task(state: State<'_, AppState>, mut task: Task) -> Result<Task, String>
     let is_new = task.path.trim().is_empty();
     task.path = vault::save_task(&root, &task)?;
 
-    state.committer.request(if is_new {
+    state.sync.request_commit(if is_new {
         format!("add \"{}\"", task.title)
     } else {
         format!("update \"{}\"", task.title)
@@ -326,6 +335,7 @@ fn save_task(state: State<'_, AppState>, mut task: Task) -> Result<Task, String>
 #[tauri::command]
 fn set_status(state: State<'_, AppState>, path: String, status: String) -> Result<Task, String> {
     let root = state.vault()?;
+    let _guard = vault::lock();
     let content = std::fs::read_to_string(root.join(&path))
         .map_err(|e| format!("could not read {path}: {e}"))?;
 
@@ -336,8 +346,8 @@ fn set_status(state: State<'_, AppState>, path: String, status: String) -> Resul
     state.mark_write();
     task.path = vault::save_task(&root, &task)?;
     state
-        .committer
-        .request(format!("{} \"{}\"", status.as_str(), task.title));
+        .sync
+        .request_commit(format!("{} \"{}\"", status.as_str(), task.title));
 
     Ok(task)
 }
@@ -345,9 +355,10 @@ fn set_status(state: State<'_, AppState>, path: String, status: String) -> Resul
 #[tauri::command]
 fn delete_task(state: State<'_, AppState>, path: String, title: String) -> Result<(), String> {
     let root = state.vault()?;
+    let _guard = vault::lock();
     state.mark_write();
     vault::delete_task(&root, &path)?;
-    state.committer.request(format!("delete \"{title}\""));
+    state.sync.request_commit(format!("delete \"{title}\""));
     Ok(())
 }
 
@@ -356,6 +367,7 @@ fn delete_task(state: State<'_, AppState>, path: String, title: String) -> Resul
 #[tauri::command]
 fn create_tasks(state: State<'_, AppState>, tasks: Vec<Task>) -> Result<Vec<Task>, String> {
     let root = state.vault()?;
+    let _guard = vault::lock();
     state.mark_write();
 
     let mut created = Vec::with_capacity(tasks.len());
@@ -375,7 +387,7 @@ fn create_tasks(state: State<'_, AppState>, tasks: Vec<Task>) -> Result<Vec<Task
     }
 
     if !created.is_empty() {
-        state.committer.request(format!("import {} task(s)", created.len()));
+        state.sync.request_commit(format!("import {} task(s)", created.len()));
     }
     Ok(created)
 }
@@ -383,37 +395,84 @@ fn create_tasks(state: State<'_, AppState>, tasks: Vec<Task>) -> Result<Vec<Task
 #[tauri::command]
 fn restore_task(state: State<'_, AppState>, path: String) -> Result<Task, String> {
     let root = state.vault()?;
+    let _guard = vault::lock();
     state.mark_write();
     let new_path = vault::restore_task(&root, &path)?;
 
     let content = std::fs::read_to_string(root.join(&new_path))
         .map_err(|e| format!("could not read {new_path}: {e}"))?;
     let task = task::parse_task(&content, &new_path);
-    state.committer.request(format!("restore \"{}\"", task.title));
+    state.sync.request_commit(format!("restore \"{}\"", task.title));
     Ok(task)
 }
 
 #[tauri::command]
 fn archive_task(state: State<'_, AppState>, path: String, title: String) -> Result<Task, String> {
     let root = state.vault()?;
+    let _guard = vault::lock();
     state.mark_write();
     let new_path = vault::archive_task(&root, &path)?;
 
     let content = std::fs::read_to_string(root.join(&new_path))
         .map_err(|e| format!("could not read {new_path}: {e}"))?;
-    state.committer.request(format!("archive \"{title}\""));
+    state.sync.request_commit(format!("archive \"{title}\""));
     Ok(task::parse_task(&content, &new_path))
 }
 
 #[tauri::command]
 fn archive_done(state: State<'_, AppState>) -> Result<usize, String> {
     let root = state.vault()?;
+    let _guard = vault::lock();
     state.mark_write();
     let moved = vault::archive_done(&root)?;
     if moved > 0 {
-        state.committer.request(format!("archive {moved} task(s)"));
+        state.sync.request_commit(format!("archive {moved} task(s)"));
     }
     Ok(moved)
+}
+
+/// Sync with the remote now. Returns immediately: the work happens on a
+/// background thread and reports itself through `sync-state` events, because a
+/// fetch over a slow link is a thing to watch, not a thing to block on.
+#[tauri::command]
+fn sync_now(state: State<'_, AppState>) -> sync::SyncState {
+    state.sync.sync_now();
+    state.sync.state()
+}
+
+#[tauri::command]
+fn sync_state(state: State<'_, AppState>) -> sync::SyncState {
+    state.sync.state()
+}
+
+/// Resolve a task whose notes came back from a sync with conflict markers, by
+/// keeping one side of every marked block -- or both, which is usually what
+/// two complementary notes want.
+#[tauri::command]
+fn resolve_conflict(
+    state: State<'_, AppState>,
+    path: String,
+    keep: String,
+) -> Result<Task, String> {
+    let root = state.vault()?;
+    let _guard = vault::lock();
+    let full = root.join(&path);
+    if !full.starts_with(&root) {
+        return Err("path escapes the vault".into());
+    }
+
+    let content =
+        std::fs::read_to_string(&full).map_err(|e| format!("could not read {path}: {e}"))?;
+    let mut task = task::parse_task(&content, &path);
+    task.description = merge::resolve_markers(&task.description, merge::Side::parse(&keep));
+    task.conflicted = false;
+
+    state.mark_write();
+    task.path = vault::save_task(&root, &task)?;
+    state
+        .sync
+        .request_commit(format!("resolve conflict in \"{}\"", task.title));
+    Ok(task)
 }
 
 /// Absolute path for a vault-relative one, so the frontend can hand it to the
@@ -468,6 +527,9 @@ pub fn run() {
             archive_task,
             archive_done,
             absolute_path,
+            sync_now,
+            sync_state,
+            resolve_conflict,
             quick_add_done,
             close_quick_add,
             app_info,
@@ -478,11 +540,9 @@ pub fn run() {
             let handle = app.handle().clone();
             let loaded = settings::load(&handle);
 
+            let engine = sync::Engine::new(PathBuf::from(&loaded.vault_path));
             let state = AppState {
-                committer: git::Committer::new(
-                    PathBuf::from(&loaded.vault_path),
-                    loaded.git_autocommit,
-                ),
+                sync: Arc::clone(&engine),
                 settings: Mutex::new(loaded),
                 watcher: Mutex::new(None),
                 last_self_write: Arc::new(AtomicI64::new(0)),
@@ -504,6 +564,10 @@ pub fn run() {
             // One scheduler for the life of the app; it re-reads settings each
             // tick, so changing reminder times needs no restart.
             reminders::start(handle.clone());
+
+            // Likewise for git: one thread that commits, and -- when a remote
+            // is configured and sync is on -- fetches, merges and pushes.
+            engine.start(handle.clone());
 
             // A vault that can't be created is worth surfacing, but the window
             // should still open so the user can point settings somewhere else.

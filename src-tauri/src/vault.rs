@@ -6,6 +6,25 @@ use crate::task::{parse_task, render_task, slugify, Status, Task};
 use chrono::Local;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard};
+
+/// One lock over the whole vault directory, held by anything that writes to
+/// it.
+///
+/// A process-wide static rather than a field on the app state because what it
+/// guards is the *folder*, not a struct: a sync merging forty files and a save
+/// landing one are two writers to the same place, and one of them is a git
+/// subprocess that has never heard of our types. There is exactly one vault
+/// per process, so a static says precisely as much as it means.
+///
+/// Poisoning is ignored deliberately. A panic mid-write leaves the vault no
+/// worse than a crash does, and refusing every subsequent save would turn a
+/// one-file problem into a dead app.
+static WRITE_LOCK: Mutex<()> = Mutex::new(());
+
+pub fn lock() -> MutexGuard<'static, ()> {
+    WRITE_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 const SKIP_DIRS: [&str; 4] = [".git", "node_modules", ".obsidian", ".trash"];
 pub const ARCHIVE_DIR: &str = "archive";
@@ -159,6 +178,29 @@ pub fn save_task(root: &Path, task: &Task) -> Result<String, String> {
     fs::write(&tmp, contents).map_err(|e| format!("could not write {}: {e}", tmp.display()))?;
     fs::rename(&tmp, &path).map_err(|e| format!("could not save {}: {e}", path.display()))?;
 
+    Ok(rel(root, &path))
+}
+
+/// Write `content` under a name next to `rel_path` that is not taken yet, and
+/// return the vault-relative path it landed on.
+///
+/// For the one sync case where two files are genuinely two tasks: both devices
+/// invented the same filename for different errands, so neither version is a
+/// correction of the other and both have to survive.
+pub fn write_beside(root: &Path, rel_path: &str, content: &str) -> Result<String, String> {
+    let relative = Path::new(rel_path);
+    let dir = match relative.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => root.join(parent),
+        _ => root.to_path_buf(),
+    };
+    let stem = relative
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .ok_or("not a file")?;
+
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = unique_path(&dir, &stem);
+    fs::write(&path, content).map_err(|e| format!("could not write {}: {e}", path.display()))?;
     Ok(rel(root, &path))
 }
 

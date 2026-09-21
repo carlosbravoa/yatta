@@ -65,6 +65,11 @@
   <div class="body">
     <div class="titleline">
       <span class="title">{task.title}</span>
+      {#if task.conflicted}
+        <span class="conflicted" title="Two devices edited these notes. Open the task to settle it.">
+          <Icon name="alert" size={12} />
+        </span>
+      {/if}
       {#if task.adopted}
         <span class="adopted" title="Written outside the app. Saving it will add the standard frontmatter.">
           <Icon name="alert" size={12} />
@@ -233,6 +238,11 @@
   .adopted {
     display: flex;
     color: var(--today);
+  }
+
+  .conflicted {
+    display: flex;
+    color: var(--p-urgent);
   }
 
   .snippet {

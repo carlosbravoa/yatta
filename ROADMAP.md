@@ -189,6 +189,19 @@ nothing about it - but it is a hack, and it is not currently done.
 
 ## Known gaps
 
+### Sync in the confined snap is unverified over SSH
+
+**Noted:** 2026-09-18
+
+The snap stages `openssh-client` and plugs `ssh-keys` (manual connection:
+`snap connect yatta:ssh-keys`), which is what an `ssh://` or `git@` remote
+needs. It has not been exercised on an installed snap yet. Two things to check
+when it is: that `ssh` resolves on `PATH` inside the sandbox, and where it
+looks for keys — `HOME` inside a snap is `$SNAP_USER_DATA`, not the real home,
+so a key at `~/.ssh/id_ed25519` may need `GIT_SSH_COMMAND` or a config file
+under `~/snap/yatta/current/.ssh/` to be found. An HTTPS remote needs nothing
+beyond the `network` plug it already has.
+
 - **`snapcore/action-build` still targets Node 20**, which GitHub has deprecated.
   Our own actions are current; this is the last one warning, and there is no
   newer version to move to — `v1.3.0` is the latest tag and declares
@@ -216,6 +229,21 @@ nothing about it - but it is a hack, and it is not currently done.
 ---
 
 ## Done
+
+- **2026-09-18** — Git sync between two devices. If the vault repo has a
+  remote, yatta commits, fetches, merges and pushes it: on the Sync button, on
+  a configurable interval, about twenty seconds after edits settle, and once at
+  startup. Setting the repository up stays the user's job — yatta syncs a repo,
+  it does not create one.
+
+  Conflicts are resolved per task rather than per file: `merge.rs` merges the
+  frontmatter three ways (furthest-along status, most urgent priority, earliest
+  deadline, set-merged tags) and only leaves notes marked when two devices
+  edited the same lines. Those tasks show up under **Conflicts** in the sidebar
+  with one-click *keep both / keep mine / keep theirs*. An edit beats a delete
+  from the other device, and two tasks that happened to pick the same filename
+  both survive. Covered by four end-to-end tests that drive two real clones of
+  a bare repo.
 
 - **2026-09-02** — 0.7.0: the quick-add popup takes an optional description,
   and its title now reads as an editable field rather than blending into the

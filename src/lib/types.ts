@@ -18,6 +18,9 @@ export interface Task {
   adopted: boolean;
   /** The file lives under `archive/`. Derived from its path, not stored. */
   archived: boolean;
+  /** The notes still carry git conflict markers from a sync that could not
+   *  merge two devices' edits on its own. Derived from the file's text. */
+  conflicted: boolean;
 }
 
 export interface Settings {
@@ -28,6 +31,12 @@ export interface Settings {
   sort_by: "manual" | "due" | "priority" | "created" | "title";
   show_done: boolean;
   git_autocommit: boolean;
+  /** Fetch, merge and push against the vault's remote. */
+  git_sync: boolean;
+  /** Minutes between background syncs; 0 means only when asked. */
+  git_sync_interval_mins: number;
+  /** Also sync shortly after your own edits settle. */
+  git_sync_on_change: boolean;
   tray_enabled: boolean;
   hotkey: string;
   first_run_done: boolean;
@@ -41,6 +50,23 @@ export interface Settings {
   /** Local `HH:MM` times. One entry = once a day, two = twice a day. */
   reminder_times: string[];
   last_reminder: string;
+}
+
+/** Everything the UI needs to show one sync button honestly. */
+export interface SyncState {
+  status: "off" | "idle" | "syncing" | "error";
+  message: string;
+  /** RFC 3339, or empty when this session has not synced yet. */
+  last_sync: string;
+  /** Vault-relative paths whose notes came back marked. */
+  conflicts: string[];
+  ahead: number;
+  behind: number;
+  /** A repo with a remote: syncing is possible at all. */
+  available: boolean;
+  repo: boolean;
+  branch: string;
+  remote: string;
 }
 
 export interface VaultInfo {
@@ -85,5 +111,6 @@ export function emptyTask(): Task {
     path: "",
     adopted: false,
     archived: false,
+    conflicted: false,
   };
 }

@@ -9,6 +9,30 @@
 
   const REPO = "https://github.com/carlosbravoa/yatta";
 
+  /* Minutes. Zero is a real choice, not an off switch: someone who syncs by
+     hand before closing the laptop wants no background traffic at all. */
+  const INTERVALS = [
+    [0, "Only when I ask"],
+    [15, "Every 15 minutes"],
+    [30, "Every 30 minutes"],
+    [60, "Every hour"],
+    [240, "Every 4 hours"],
+    [720, "Twice a day"],
+  ] as const;
+
+  const syncOn = $derived(
+    store.settings.git_sync && store.settings.git_autocommit && store.sync.available
+  );
+
+  const lastSync = $derived.by(() => {
+    if (!store.sync.last_sync) return "";
+    const when = new Date(store.sync.last_sync);
+    if (Number.isNaN(when.getTime())) return "";
+    const today = when.toDateString() === new Date().toDateString();
+    const time = when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return today ? `at ${time}` : `${when.toLocaleDateString()}, ${time}`;
+  });
+
   const THEMES = [
     ["system", "System", "circle"],
     ["light", "Light", "sun"],
@@ -227,6 +251,106 @@
       <p class="note">
         Uses the <code>git</code> command already on your system — nothing is bundled, and the
         feature simply stays off where git isn't available.
+      </p>
+    </section>
+
+    <section>
+      <h3>Sync across devices</h3>
+
+      <label class="row toggle">
+        <div class="text">
+          <span class="label">Keep this vault in step with its remote</span>
+          <span class="hint">
+            {#if !store.isGitRepo}
+              This folder is not a git repo. Run <code>git init</code> in it first.
+            {:else if !store.settings.git_autocommit}
+              Switch on automatic commits above — there is nothing to push until changes are committed.
+            {:else if store.sync.available}
+              Pushes and pulls <code>{store.sync.remote}/{store.sync.branch}</code>, merging what the
+              other device did.
+            {:else}
+              This repo has no remote yet. Add one and push it once from a terminal, then switch this on:
+              <code>git remote add origin …</code> then <code>git push -u origin HEAD</code>.
+            {/if}
+          </span>
+        </div>
+        <input
+          type="checkbox"
+          checked={store.settings.git_sync}
+          disabled={!store.sync.available || !store.settings.git_autocommit}
+          onchange={(e) => store.updateSettings({ git_sync: e.currentTarget.checked })}
+        />
+      </label>
+
+      {#if syncOn}
+        <label class="row">
+          <div class="text">
+            <span class="label">Sync in the background</span>
+            <span class="hint">yatta also syncs when it starts, and whenever you press the button.</span>
+          </div>
+          <select
+            class="interval"
+            value={String(store.settings.git_sync_interval_mins)}
+            onchange={(e) =>
+              store.updateSettings({ git_sync_interval_mins: Number(e.currentTarget.value) })}
+          >
+            {#each INTERVALS as [value, label] (value)}
+              <option value={String(value)}>{label}</option>
+            {/each}
+          </select>
+        </label>
+
+        <label class="row toggle">
+          <div class="text">
+            <span class="label">Push shortly after I make a change</span>
+            <span class="hint">
+              Waits for your edits to settle, then pushes. Without this, a task written here is
+              invisible on the other device until the next scheduled sync.
+            </span>
+          </div>
+          <input
+            type="checkbox"
+            checked={store.settings.git_sync_on_change}
+            onchange={(e) => store.updateSettings({ git_sync_on_change: e.currentTarget.checked })}
+          />
+        </label>
+
+        <div class="row">
+          <div class="text">
+            <span class="label">
+              {#if store.sync.status === "syncing"}
+                Syncing…
+              {:else if store.sync.status === "error"}
+                {store.sync.message || "Sync failed"}
+              {:else if lastSync}
+                Last synced {lastSync}
+              {:else}
+                Not synced yet in this session
+              {/if}
+            </span>
+            {#if store.counts.conflicts > 0}
+              <span class="hint">
+                {store.counts.conflicts} task{store.counts.conflicts === 1 ? "" : "s"} with notes
+                two devices changed at once — open one to settle it.
+              </span>
+            {/if}
+          </div>
+          <button
+            class="btn"
+            onclick={() => store.syncNow()}
+            disabled={store.sync.status === "syncing"}
+          >
+            Sync now
+          </button>
+        </div>
+      {/if}
+
+      <p class="note">
+        Sync is plain <code>git</code>: commit, fetch, merge, push, using your own SSH key or
+        credential helper — yatta never asks for a password and never stores one. When both devices
+        change the same task, the fields merge on their own (furthest-along status, most urgent
+        priority, earliest deadline, all the tags); only notes edited in the same place on both
+        sides are left for you, marked up in the task itself.
       </p>
     </section>
 
@@ -460,6 +584,20 @@
   }
   .timepick select:hover { background: var(--surface); }
   .colon { color: var(--text-faint); font-variant-numeric: tabular-nums; }
+
+  .interval {
+    flex: none;
+    appearance: none;
+    padding: 5px 9px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    font: inherit;
+    font-size: 12.5px;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .interval:hover { background: var(--surface); }
 
   .about em { font-style: normal; color: var(--accent); }
 

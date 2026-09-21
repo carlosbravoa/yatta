@@ -53,9 +53,18 @@ apps:
       - removable-media
       # libayatana-appindicator3 tray icon registration.
       - unity7
-      # WebKitGTK starts a network process; also required by the planned
-      # "hand this task to an AI agent" integration.
+      # WebKitGTK starts a network process; also what git sync fetches and
+      # pushes over. Also required by the planned "hand this task to an AI
+      # agent" integration.
       - network
+      # Git sync over an SSH remote needs the user's key, and ~/.ssh is a
+      # hidden directory that the `home` interface deliberately does not
+      # grant. Not auto-connected: a task list has no business reading SSH
+      # keys unless its owner says so, which is
+      #   snap connect yatta:ssh-keys
+      # and only matters for an ssh:// or git@ remote. HTTPS remotes need
+      # nothing beyond `network`.
+      - ssh-keys
     environment:
       # git is bundled (see stage-packages) rather than exec'd from the host,
       # which is what keeps this snap in strict confinement. It needs to be
@@ -123,6 +132,10 @@ parts:
       # One known binary, not arbitrary host tools - this is the difference
       # between strict and classic here.
       - git
+      # git shells out to `ssh` for an ssh:// or git@ remote, and the host's
+      # copy is outside the sandbox. Without this, sync works over HTTPS and
+      # fails over SSH with "ssh: not found".
+      - openssh-client
 
     override-build: |
       set -eux

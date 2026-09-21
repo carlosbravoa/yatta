@@ -27,6 +27,8 @@
         return { icon: "check", title: "Nothing completed yet", body: "Tick a task off and it moves here." };
       case "archived":
         return { icon: "archive", title: "The archive is empty", body: "Archiving moves completed tasks into an `archive/` folder in your vault." };
+      case "conflicts":
+        return { icon: "check", title: "Nothing left to settle", body: "Tasks two devices edited at once appear here until you pick a version." };
       default:
         return { icon: "sparkles", title: "No tasks yet", body: "Add your first one above. It becomes a markdown file you own." };
     }

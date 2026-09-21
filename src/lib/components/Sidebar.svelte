@@ -78,6 +78,21 @@
       </button>
     {/each}
 
+    <!-- Only ever present when a sync left something for a human to settle.
+         A permanent "Conflicts (0)" would be a standing reminder of a problem
+         nobody has. -->
+    {#if store.counts.conflicts > 0}
+      <button
+        class="nav"
+        class:active={store.view === "conflicts"}
+        onclick={() => select("conflicts")}
+      >
+        <Icon name="alert" />
+        <span class="label">Conflicts</span>
+        <span class="count overdue">{store.counts.conflicts}</span>
+      </button>
+    {/if}
+
     {#if store.counts.archived > 0}
       <button
         class="nav"

@@ -141,11 +141,15 @@ sudo snappy-debug
 
 ## Interface connections
 
-Nine of the ten interfaces auto-connect. One does not:
+Nine of the eleven interfaces auto-connect. Two do not:
 
 ```bash
 # Only needed if you keep your task vault on an external drive or under /mnt.
 sudo snap connect yatta:removable-media
+
+# Only needed for git sync over an ssh:// or git@ remote. HTTPS remotes need
+# nothing beyond the network interface, which is already connected.
+sudo snap connect yatta:ssh-keys
 ```
 
 Check what is connected:
@@ -163,8 +167,27 @@ snap connections yatta
 | `gsettings` | yes | Follows the desktop light/dark theme preference |
 | `unity7` | yes | AppIndicator tray icon |
 | `home` | yes | The vault — the app's entire data store |
-| `network` | yes | WebKitGTK's network process; future agent integration |
+| `network` | yes | WebKitGTK's network process; git sync; future agent integration |
 | `removable-media` | **no** | Only if the vault lives on an external drive |
+| `ssh-keys` | **no** | Only for git sync over an SSH remote — `~/.ssh` is hidden, so `home` does not cover it |
+
+### Git sync inside the sandbox
+
+`git` and `openssh-client` are both staged, so neither is taken from the host.
+Two consequences are worth knowing before debugging a sync that will not
+authenticate:
+
+- **`HOME` is `$SNAP_USER_DATA`**, i.e. `~/snap/yatta/current`. Git and ssh
+  read their config from there, not from your real home — so the host's
+  `~/.gitconfig` and `~/.ssh/config` do not apply. yatta commits with a
+  fallback identity when `user.email` is unset, so this costs you nothing for
+  committing; it matters for finding a key.
+- **`~/.ssh` is hidden**, and the `home` interface never grants hidden files.
+  That is what `ssh-keys` is for, and it is a manual connection: a task list
+  has no business reading SSH keys unless its owner says so.
+
+An HTTPS remote sidesteps both, at the cost of needing a credential helper
+that works with the snap's own `HOME`.
 
 ## Design notes specific to this snap
 

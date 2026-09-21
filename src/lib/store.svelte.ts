@@ -1,7 +1,7 @@
 import { api } from "./api";
 import { mark } from "./timing";
 import { daysUntil, todayISO } from "./dates";
-import { PRIORITY_RANK, type Settings, type Status, type Task } from "./types";
+import { PRIORITY_RANK, type Settings, type Status, type SyncState, type Task } from "./types";
 
 export type ViewId =
   | "all"
@@ -10,6 +10,7 @@ export type ViewId =
   | "nodate"
   | "done"
   | "archived"
+  | "conflicts"
   | `tag:${string}`;
 
 export interface Column {
@@ -24,6 +25,19 @@ export interface Group {
   tasks: Task[];
 }
 
+const NO_SYNC: SyncState = {
+  status: "off",
+  message: "",
+  last_sync: "",
+  conflicts: [],
+  ahead: 0,
+  behind: 0,
+  available: false,
+  repo: false,
+  branch: "",
+  remote: "",
+};
+
 const DEFAULT_SETTINGS: Settings = {
   vault_path: "",
   theme: "system",
@@ -32,6 +46,9 @@ const DEFAULT_SETTINGS: Settings = {
   sort_by: "due",
   show_done: false,
   git_autocommit: false,
+  git_sync: false,
+  git_sync_interval_mins: 60,
+  git_sync_on_change: true,
   tray_enabled: true,
   hotkey: "CmdOrCtrl+Shift+Space",
   first_run_done: false,
@@ -128,6 +145,9 @@ class Store {
   settings = $state<Settings>({ ...DEFAULT_SETTINGS });
   vaultPath = $state("");
   isGitRepo = $state(false);
+  sync = $state<SyncState>({ ...NO_SYNC });
+  /** Whether the sync in flight is one the user pressed for. */
+  private askedToSync = false;
   supportsTray = $state(true);
 
   view = $state<ViewId>("all");
@@ -163,6 +183,11 @@ class Store {
   done = $derived(this.tasks.filter((t) => !t.archived && t.status === "done"));
   archivedTasks = $derived(this.tasks.filter((t) => t.archived));
 
+  /* Read from the tasks themselves, not from the last sync's report: a
+     conflict lives in the file until someone resolves it, so it has to
+     survive a restart, and a file conflicted by hand counts too. */
+  conflicted = $derived(this.tasks.filter((t) => t.conflicted));
+
   counts = $derived({
     all: this.open.length,
     today: this.open.filter((t) => t.due !== null && daysUntil(t.due) <= 0).length,
@@ -170,6 +195,7 @@ class Store {
     nodate: this.open.filter((t) => t.due === null).length,
     done: this.done.length,
     archived: this.archivedTasks.length,
+    conflicts: this.conflicted.length,
   });
 
   /** True until the user has chosen where their tasks should live. */
@@ -199,6 +225,9 @@ class Store {
     const view = this.view;
     if (view === "archived") return this.archivedTasks;
     if (view === "done") return this.done;
+    // Every conflict, wherever it sits: a sync can mark a completed or an
+    // archived task just as easily as an open one.
+    if (view === "conflicts") return this.conflicted;
 
     const base =
       includeDone || this.settings.show_done ? [...this.open, ...this.done] : this.open;
@@ -286,6 +315,7 @@ class Store {
       this.vaultPath = info.path;
       this.isGitRepo = info.is_git_repo;
       this.supportsTray = info.supports_tray;
+      api.syncState().then((state) => (this.sync = state)).catch(() => {});
 
       // Skip the first-run picker only for someone who has genuinely used
       // yatta before: a settings file exists but predates the picker, so
@@ -493,6 +523,71 @@ class Store {
     } catch (e) {
       this.notify(String(e));
       return false;
+    }
+  }
+
+  /** The backend reports every sync as it goes; this is where those events
+   *  land, whoever started them.
+   *
+   *  What gets said out loud depends on who asked. A sync you pressed owes you
+   *  an answer, even a dull one. A sync the timer started should stay silent
+   *  unless it has something you need to act on -- an hourly "Up to date"
+   *  toast is a notification that teaches you to ignore notifications. */
+  applySync(state: SyncState) {
+    const finished = this.sync.status === "syncing" && state.status !== "syncing";
+    const asked = this.askedToSync;
+    this.sync = state;
+    if (!finished) return;
+    this.askedToSync = false;
+
+    if (state.status === "error") {
+      this.notify(state.message || "Sync failed");
+    } else if (state.conflicts.length > 0) {
+      const n = state.conflicts.length;
+      this.notify(`Synced — ${n} task${n === 1 ? "" : "s"} need a look`, {
+        label: "Show",
+        run: () => {
+          this.view = "conflicts";
+          this.query = "";
+        },
+      });
+    } else if (asked && state.message) {
+      this.notify(state.message);
+    }
+  }
+
+  async syncNow() {
+    if (this.sync.status === "syncing") return;
+    // Shown as busy straight away rather than on the first event back: the
+    // round trip is short, but a button that does nothing for half a second
+    // reads as a button that did not work.
+    this.askedToSync = true;
+    this.sync = { ...$state.snapshot(this.sync), status: "syncing", message: "" };
+    try {
+      await api.syncNow();
+    } catch (e) {
+      this.askedToSync = false;
+      this.sync = { ...$state.snapshot(this.sync), status: "error", message: String(e) };
+      this.notify(String(e));
+    }
+  }
+
+  /** Settle a conflicted task by keeping one side of every marked block --
+   *  or both, which is what two complementary notes usually want. */
+  async resolveConflict(path: string, keep: "ours" | "theirs" | "both") {
+    try {
+      const saved = await api.resolveConflict(path, keep);
+      const idx = this.tasks.findIndex((t) => t.path === saved.path);
+      if (idx >= 0) this.tasks[idx] = saved;
+      // The Conflicts view only exists while there are conflicts, so settling
+      // the last one would otherwise strand you on a view whose sidebar entry
+      // has just disappeared.
+      if (this.view === "conflicts" && this.conflicted.length === 0) this.view = "all";
+      this.notify("Conflict resolved");
+      return saved;
+    } catch (e) {
+      this.notify(String(e));
+      return null;
     }
   }
 

@@ -11,6 +11,7 @@
     nodate: "No deadline",
     done: "Done",
     archived: "Archive",
+    conflicts: "Sync conflicts",
   };
 
   const title = $derived(
@@ -49,6 +50,28 @@
   ] as const;
 
   let menu = $state<HTMLDetailsElement | undefined>();
+
+  /* The sync button says three things at once: that syncing is on, what it is
+     doing now, and when it last worked. The last one is what makes the button
+     trustworthy -- "Synced 14:32" is the difference between believing the
+     other machine has your list and hoping it does. */
+  const syncing = $derived(store.sync.status === "syncing");
+
+  function clockTime(iso: string): string {
+    const when = new Date(iso);
+    if (Number.isNaN(when.getTime())) return "";
+    const today = when.toDateString() === new Date().toDateString();
+    const time = when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return today ? time : `${when.toLocaleDateString()} ${time}`;
+  }
+
+  const syncTitle = $derived.by(() => {
+    const { status, message, last_sync, remote, branch } = store.sync;
+    if (status === "syncing") return "Syncing…";
+    if (status === "error") return message || "Sync failed";
+    const where = remote && branch ? ` · ${remote}/${branch}` : "";
+    return last_sync ? `Synced ${clockTime(last_sync)}${where}` : `Sync now${where}`;
+  });
 
   /** Copy the current list as markdown, in the app's own quick-add syntax so
    *  the recipient can paste it straight into the importer. */
@@ -91,6 +114,23 @@
       </button>
     {/if}
   </div>
+
+  {#if store.settings.git_sync && store.sync.available}
+    <button
+      class="btn icon sync"
+      class:spinning={syncing}
+      class:failed={store.sync.status === "error"}
+      onclick={() => store.syncNow()}
+      disabled={syncing}
+      title={syncTitle}
+      aria-label={syncTitle}
+    >
+      <Icon name="sync" size={14} />
+      {#if store.counts.conflicts > 0}
+        <span class="badge" aria-hidden="true">{store.counts.conflicts}</span>
+      {/if}
+    </button>
+  {/if}
 
   {#if store.settings.layout === "list"}
     <button
@@ -232,6 +272,35 @@
 
   .btn.icon:disabled { opacity: 0.4; cursor: default; }
   .btn.icon:disabled:hover { background: none; color: var(--text-dim); }
+
+  .sync { position: relative; }
+  /* Disabled while syncing, but not faded: a spinning icon at 40% opacity
+     reads as broken rather than busy. */
+  .sync.spinning:disabled { opacity: 1; color: var(--accent); }
+  .sync.spinning :global(.icon) { animation: spin 1.1s linear infinite; }
+  .sync.failed { color: var(--p-urgent); }
+  .sync .badge {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    min-width: 13px;
+    height: 13px;
+    padding: 0 3px;
+    border-radius: 7px;
+    background: var(--p-high);
+    color: #fff;
+    font-size: 9.5px;
+    font-weight: 700;
+    line-height: 13px;
+    text-align: center;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sync.spinning :global(.icon) { animation-duration: 3s; }
+  }
 
   .layout {
     display: flex;

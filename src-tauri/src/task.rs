@@ -110,6 +110,12 @@ pub struct Task {
     /// never stored in the file -- moving the file is what archives it.
     #[serde(default)]
     pub archived: bool,
+    /// True when the body still carries git conflict markers, left by a sync
+    /// that could not merge two devices' notes on its own. Derived from the
+    /// text, so it survives a restart and is equally true of a conflict
+    /// resolved -- or created -- in a text editor.
+    #[serde(default)]
+    pub conflicted: bool,
 }
 
 impl Task {
@@ -127,6 +133,7 @@ impl Task {
             path: String::new(),
             adopted: false,
             archived: false,
+            conflicted: false,
         }
     }
 }
@@ -397,6 +404,8 @@ pub fn parse_task(content: &str, rel_path: &str) -> Task {
 
     let status = scalar(&fm, "status").map(Status::parse).unwrap_or_default();
 
+    let conflicted = crate::merge::has_markers(&description);
+
     Task {
         id: scalar(&fm, "id").map(str::to_string).unwrap_or_else(new_id),
         title,
@@ -417,6 +426,7 @@ pub fn parse_task(content: &str, rel_path: &str) -> Task {
         path: rel_path.to_string(),
         adopted: !had_id,
         archived: rel_path.starts_with("archive/"),
+        conflicted,
     }
 }
 

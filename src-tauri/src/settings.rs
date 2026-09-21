@@ -23,6 +23,16 @@ pub struct Settings {
     /// Opt-in: shells out to the `git` binary, no-ops when it's absent or the
     /// vault isn't a repo. Never a build dependency.
     pub git_autocommit: bool,
+    /// Opt-in on top of auto-commit: fetch, merge and push against the
+    /// vault's remote, so two machines share one list. Requires a repo that
+    /// already has a remote -- yatta syncs a repository, it does not set one
+    /// up.
+    pub git_sync: bool,
+    /// Minutes between background syncs. 0 means only when asked.
+    pub git_sync_interval_mins: u32,
+    /// Also sync shortly after your own edits settle. This is what makes the
+    /// other device see today's task today rather than at the next interval.
+    pub git_sync_on_change: bool,
     /// Only meaningful in builds compiled with the `desktop-integration` feature.
     pub tray_enabled: bool,
     pub hotkey: String,
@@ -59,6 +69,9 @@ impl Default for Settings {
             sort_by: "due".into(),
             show_done: false,
             git_autocommit: false,
+            git_sync: false,
+            git_sync_interval_mins: 60,
+            git_sync_on_change: true,
             tray_enabled: true,
             hotkey: "CmdOrCtrl+Shift+Space".into(),
             first_run_done: false,

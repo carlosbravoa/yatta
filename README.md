@@ -82,10 +82,11 @@ snapcraft pack
 sudo snap install --dangerous ./yatta_0.1.0_amd64.snap
 ```
 
-Strictly confined, core24, using the `gnome` extension. Only `git` is staged —
-the GNOME platform snap already provides WebKitGTK, GTK3, librsvg and
-libayatana-appindicator. See `SNAP_PACKAGING.md` for interface connections and
-troubleshooting.
+Strictly confined, core24, using the `gnome` extension. Only `git` and
+`openssh-client` are staged — the GNOME platform snap already provides
+WebKitGTK, GTK3, librsvg and libayatana-appindicator. Sync over an SSH remote
+additionally needs `snap connect yatta:ssh-keys`. See `SNAP_PACKAGING.md` for
+interface connections and troubleshooting.
 
 ### Windows
 
@@ -165,6 +166,11 @@ dependency, and git auto-commit shells out to whatever `git` is on `PATH`.
   delivered late.
 - **Optional git auto-commit.** Coalesced a few seconds after you stop typing,
   via the `git` binary. Off unless the vault is a repo and you enable it.
+- **Optional git sync across devices.** If the vault repo has a remote, yatta
+  commits, fetches, merges and pushes it: on the Sync button, on an interval
+  you choose, shortly after your own edits settle, and once at startup. Two
+  machines share one list without a server or an account. Conflicts are merged
+  per task rather than per file — see [Syncing two devices](#syncing-two-devices).
 - **Optional tray icon and global hotkey**, behind a compile-time feature.
 - **Agent prompt.** The detail panel composes a ready-to-paste prompt containing
   the task, its metadata and its file path — the seam for the planned
@@ -221,7 +227,9 @@ src-tauri/src/
   task.rs               markdown <-> task, frontmatter parser
   vault.rs              scan, atomic save, archive
   watcher.rs            debounced filesystem watching
-  git.rs                optional auto-commit
+  git.rs                git plumbing: one timed, non-interactive call each
+  sync.rs               when to commit, fetch, merge and push
+  merge.rs              how two devices' versions of a task become one
   tray.rs               optional tray + hotkey (feature-gated)
 ```
 
@@ -239,6 +247,78 @@ suggested default is `~/Documents/yatta`; the picker lets you put it anywhere.
 You can move the vault later in Settings. Moving it does not move your files;
 it changes which folder the app reads.
 
+## Syncing two devices
+
+Two machines share one vault by sharing one branch. There is no server, no
+account and no sync protocol of yatta's own: it is `git`, run for you.
+
+Set the repository up yourself, once — yatta syncs a repository, it does not
+create one:
+
+```bash
+# on the first machine, in your vault folder
+git init && git add -A && git commit -m "my tasks"
+git remote add origin git@example.com:me/tasks.git
+git push -u origin HEAD
+
+# on the second machine
+git clone git@example.com:me/tasks.git ~/Documents/yatta
+```
+
+Then point yatta at the folder on both, and in Settings switch on *Commit
+changes to git automatically* and *Keep this vault in step with its remote*.
+Authentication is your own: yatta runs git with prompts disabled and uses
+whatever SSH agent or credential helper you already have, so it never asks for
+a password and never stores one.
+
+**What a sync does.** Commit anything outstanding, fetch, merge what the other
+device did, push. It runs when you press the button, on the interval you pick
+(hourly by default, or never), about twenty seconds after your own edits
+settle, and once at startup.
+
+**What happens when both devices changed the same task.** One task is one
+file, so a disagreement is never about the list — only about that task. Every
+field is merged three ways, and a field only one device touched is simply
+taken. When both changed the same field:
+
+| field       | what wins                                                |
+|-------------|----------------------------------------------------------|
+| status      | the furthest along — done beats doing beats to-do        |
+| priority    | the more urgent                                          |
+| due         | the earlier date; a date beats no date                   |
+| tags        | a set merge: an addition sticks, and so does a removal   |
+| title       | this device's, and the sync says so; the other is in `git log` |
+| notes       | a line-level merge — see below                           |
+
+Each rule is chosen so the failure mode is visible work rather than silent
+loss: unticking a task takes a second, whereas a dropped deadline is only
+noticed once it has passed.
+
+Notes are merged line by line, so two devices editing different paragraphs of
+the same task merge silently. Only genuinely overlapping edits are left for
+you, marked in the file the way git marks them:
+
+```markdown
+<<<<<<< laptop (this device)
+Ask Ana to review the numbers first.
+=======
+Numbers confirmed by finance on Tuesday.
+>>>>>>> origin/main (the other device)
+```
+
+Those tasks appear under **Conflicts** in the sidebar and carry a warning in
+the list. Open one and the detail panel offers *Keep both*, *Keep this
+device's* or *Keep the other's* — or edit the notes by hand, which is all the
+buttons do. Nothing is ever discarded without being written down somewhere.
+
+Two more cases worth knowing:
+
+- **One device deleted a task the other was editing.** The edit wins and the
+  task stays. Deleting it again takes one click; rewriting a note from memory
+  does not.
+- **Both devices invented the same filename for different tasks.** Both files
+  survive; the second is saved alongside the first under a free name.
+
 ## Roadmap
 
 Feature requests and known gaps live in [ROADMAP.md](ROADMAP.md).
@@ -252,6 +332,9 @@ Feature requests and known gaps live in [ROADMAP.md](ROADMAP.md).
   not preserved through an edit made in the UI.
 - **Filenames are fixed at creation.** Retitling a task changes `title:`, not
   the filename, so paths that agents hold stay valid.
+- **Sync needs a repository that already has a remote.** yatta will not run
+  `git init`, add a remote or clone for you: setting up where your data lives
+  is a decision, not a default.
 
 ## License
 

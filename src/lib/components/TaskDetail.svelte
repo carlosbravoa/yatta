@@ -8,6 +8,7 @@
   import { addDays, formatLong, toISO, todayISO } from "../dates";
   import { undoable } from "../history";
   import { matchDate } from "../quickadd";
+  import { confetti } from "../confetti";
   import { store } from "../store.svelte";
   import { PRIORITIES, PRIORITY_LABEL, type Priority, type Status, type Task } from "../types";
   import Icon from "./Icon.svelte";
@@ -262,7 +263,8 @@
     }
   }
 
-  function setStatus(status: Status) {
+  function setStatus(status: Status, event: MouseEvent) {
+    if (status === "done" && draft.status !== "done") confetti(event.currentTarget as Element);
     draft.status = status;
     draft.completed = status === "done" ? todayISO() : null;
     scheduleSave("status");
@@ -397,7 +399,7 @@
           class="seg"
           class:on={draft.status === value}
           data-s={value}
-          onclick={() => setStatus(value as Status)}
+          onclick={(e) => setStatus(value as Status, e)}
         >
           {label}
         </button>

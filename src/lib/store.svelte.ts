@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { celebrate } from "./confetti";
 import { mark } from "./timing";
 import { daysUntil, todayISO } from "./dates";
 import { PRIORITY_RANK, type Settings, type Status, type SyncState, type Task } from "./types";
@@ -370,6 +371,7 @@ class Store {
     const idx = this.tasks.findIndex((t) => t.path === task.path);
 
     // Optimistic: the checkbox must feel instant; disk catches up after.
+    if (next === "done") celebrate(task.path);
     if (idx >= 0) {
       this.tasks[idx] = {
         ...this.tasks[idx],
@@ -478,6 +480,7 @@ class Store {
   /** Board drag-and-drop target. */
   async setStatus(task: Task, status: Status) {
     if (task.status === status) return;
+    if (status === "done") celebrate(task.path);
     const idx = this.tasks.findIndex((t) => t.path === task.path);
     if (idx >= 0) {
       this.tasks[idx] = {

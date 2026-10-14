@@ -333,7 +333,7 @@ fn list(fm: &[(String, FmValue)], key: &str) -> Vec<String> {
 
 /// Normalise a due value written by a human or an agent into `YYYY-MM-DD`.
 /// Anything unparseable is dropped rather than shown as a bogus deadline.
-fn normalize_date(raw: &str) -> Option<String> {
+pub fn normalize_date(raw: &str) -> Option<String> {
     let s = raw.trim();
     if s.is_empty() {
         return None;

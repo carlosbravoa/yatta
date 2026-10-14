@@ -1,5 +1,6 @@
 mod autostart;
 mod git;
+mod mcp;
 mod merge;
 mod reminders;
 mod settings;
@@ -189,6 +190,9 @@ pub struct AppInfo {
     /// Whether a tray icon is available, which is what makes closing to the
     /// tray a safe thing to offer.
     has_tray: bool,
+    /// The executable to give an MCP client, as the user would type it, so
+    /// the settings panel can show a command that works as-is.
+    mcp_command: String,
 }
 
 #[tauri::command]
@@ -196,6 +200,7 @@ fn app_info(app: AppHandle) -> AppInfo {
     AppInfo {
         version: app.package_info().version.to_string(),
         has_tray: cfg!(feature = "desktop-integration"),
+        mcp_command: mcp::command(),
     }
 }
 
@@ -500,6 +505,18 @@ fn normalize_tags(tags: Vec<String>) -> Vec<String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // `yatta --mcp` is the same binary serving the vault to an agent over
+    // stdio instead of opening a window. Decided before Tauri is built so no
+    // webview, tray or plugin is ever touched in that mode.
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--mcp") {
+        let vault = args
+            .iter()
+            .position(|a| a == "--vault")
+            .and_then(|i| args.get(i + 1).cloned());
+        std::process::exit(mcp::serve(mcp::resolve_vault(vault)));
+    }
+
     timing("rust:run-entry");
     // `mut` is only needed when the desktop-integration plugin is compiled in.
     #[allow(unused_mut)]

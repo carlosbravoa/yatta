@@ -175,6 +175,10 @@ dependency, and git auto-commit shells out to whatever `git` is on `PATH`.
 - **Agent prompt.** The detail panel composes a ready-to-paste prompt containing
   the task, its metadata and its file path — the seam for the planned
   "hand this to an agent" action.
+- **MCP server.** `yatta --mcp` serves the vault to any agent that speaks the
+  Model Context Protocol, so it can list, add, update, complete and archive
+  tasks with typed tools instead of guessing at the file format. See
+  [Using yatta from an agent](#using-yatta-from-an-agent).
 
 ### Keyboard
 
@@ -188,6 +192,61 @@ dependency, and git auto-commit shells out to whatever `git` is on `PATH`.
 | `←` / `→`     | Move a card between columns (board) |
 | `Esc`         | Close panel / clear search      |
 | `Ctrl` `R`    | Reload from disk                |
+
+## Using yatta from an agent
+
+The vault is plain markdown, so an agent can always just write a file. For
+agents that would rather have tools, the app itself is an
+[MCP](https://modelcontextprotocol.io) server: run it with `--mcp` and it
+serves the vault over stdio instead of opening a window. Nothing extra to
+install, and the window does not have to be open.
+
+```bash
+yatta --mcp                    # or the AppImage, or /snap/bin/yatta
+```
+
+It finds the vault the same way the window does (the settings file), and takes
+`--vault <dir>` or `YATTA_VAULT=<dir>` to point it elsewhere.
+
+**Claude Code.** One command registers it for every project:
+
+```bash
+claude mcp add --scope user yatta -- yatta --mcp
+```
+
+Settings → *AI agents* shows this command with the real path of the executable
+you are running, and a Copy button. For a source checkout, the repo carries a
+`.mcp.json` that runs the debug build through `cargo run`, so a session opened
+in this folder gets the server automatically.
+
+**Claude Desktop, Cursor and others** take the same shape in their MCP config:
+
+```json
+{
+  "mcpServers": {
+    "yatta": {
+      "command": "/path/to/yatta",
+      "args": ["--mcp"]
+    }
+  }
+}
+```
+
+| Tool            | What it does                                                        |
+|-----------------|---------------------------------------------------------------------|
+| `list_tasks`    | Filter by status, tag, deadline (`overdue`, `today`, `week`…), text |
+| `get_task`      | One task in full, with its description and file path                |
+| `add_task`      | Create a task: title, description, status, priority, due, tags      |
+| `update_task`   | Change any field; `add_tags` / `remove_tags` adjust without replacing |
+| `complete_task` | Mark done and stamp `completed:`                                    |
+| `archive_task`  | Move the file into `archive/` (reversible with `restore_task`)      |
+| `delete_task`   | Remove the file. Marked destructive; agents are told to prefer archiving |
+
+Two resources, `yatta://vault` (path and counts) and `yatta://format` (the
+file format), let an agent orient itself before touching anything. Tasks are
+addressed by `id` or by vault-relative path, both of which every result
+carries. The server is the same `task.rs` and `vault.rs` the window uses, so a
+file written through it is exactly what the app would have written.
 
 ## How archiving works
 
@@ -230,6 +289,7 @@ src-tauri/src/
   git.rs                git plumbing: one timed, non-interactive call each
   sync.rs               when to commit, fetch, merge and push
   merge.rs              how two devices' versions of a task become one
+  mcp.rs                `yatta --mcp`: the vault as an MCP server over stdio
   tray.rs               optional tray + hotkey (feature-gated)
 ```
 

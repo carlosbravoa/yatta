@@ -8,6 +8,27 @@
   import Icon from "./Icon.svelte";
 
   const REPO = "https://github.com/carlosbravoa/yatta";
+  const AGENT_GUIDE = REPO + "#using-yatta-from-an-agent";
+
+  /* The MCP server is this very binary run with --mcp, so the snippets can
+     name the real executable: the backend reports it as the user would type
+     it (the AppImage file, the snap's /snap/bin wrapper, or the plain path).
+     Until app_info answers there is a placeholder, so the layout never jumps. */
+  let mcpExe = $state("yatta");
+  const mcpShellExe = $derived(/\s/.test(mcpExe) ? `"${mcpExe}"` : mcpExe);
+  const mcpClaudeCode = $derived(`claude mcp add --scope user yatta -- ${mcpShellExe} --mcp`);
+  const mcpConfig = $derived(
+    JSON.stringify({ mcpServers: { yatta: { command: mcpExe, args: ["--mcp"] } } }, null, 2)
+  );
+
+  async function copy(text: string, what: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      store.notify(`${what} copied to the clipboard`);
+    } catch {
+      store.notify("Could not reach the clipboard");
+    }
+  }
 
   /* Minutes. Zero is a real choice, not an off switch: someone who syncs by
      hand before closing the laptop wants no background traffic at all. */
@@ -44,8 +65,11 @@
   let version = $state("");
 
   $effect(() => {
-    invoke<{ version: string }>("app_info")
-      .then((info) => (version = info.version))
+    invoke<{ version: string; mcp_command: string }>("app_info")
+      .then((info) => {
+        version = info.version;
+        if (info.mcp_command) mcpExe = info.mcp_command;
+      })
       .catch(() => {});
   });
 
@@ -390,6 +414,43 @@
       </section>
     {/if}
 
+    <section>
+      <h3>AI agents</h3>
+      <div class="row">
+        <div class="text">
+          <span class="label">MCP server</span>
+          <span class="hint">
+            Gives Claude Code, Claude Desktop, Cursor and any other MCP client typed tools to list,
+            add, update, complete and archive your tasks. It reads this vault directly, so the app
+            need not be running, and changes show up here as they land.
+          </span>
+        </div>
+        <div class="actions">
+          <button class="btn" onclick={() => openUrl(AGENT_GUIDE)}>
+            <Icon name="external" size={13} />Guide
+          </button>
+        </div>
+      </div>
+      <p class="note">
+        The server is built into this app — nothing to install. For Claude Code, one command
+        registers it everywhere:
+      </p>
+      <div class="cmd">
+        <pre>{mcpClaudeCode}</pre>
+        <button class="btn" onclick={() => copy(mcpClaudeCode, "Command")}>Copy</button>
+      </div>
+      <p class="note">Other clients take the same server in their MCP configuration file:</p>
+      <div class="cmd">
+        <pre>{mcpConfig}</pre>
+        <button class="btn" onclick={() => copy(mcpConfig, "Configuration")}>Copy</button>
+      </div>
+      <p class="note">
+        The server finds this vault through the same settings file the app uses; add
+        <code>--vault</code> to point it at another folder. Without any of this, an agent can still
+        just write a markdown file into the vault — the README there documents the format.
+      </p>
+    </section>
+
     <section class="about">
       <h3>About</h3>
       <div class="row">
@@ -513,6 +574,28 @@
     padding: 1px 5px;
     border-radius: 5px;
     background: var(--surface-2);
+  }
+
+  /* A command to copy. It wraps rather than scrolling so nothing is hidden
+     off the edge; the Copy button is there for taking it whole. */
+  .cmd {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .cmd pre {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    font-size: 11.5px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+    user-select: all;
   }
 
   .segs { display: flex; gap: 2px; padding: 2px; border-radius: var(--radius-sm); background: var(--surface-2); flex: none; }

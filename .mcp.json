@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "yatta": {
+      "command": "cargo",
+      "args": ["run", "--quiet", "--manifest-path", "src-tauri/Cargo.toml", "--", "--mcp"]
+    }
+  }
+}

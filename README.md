@@ -14,9 +14,9 @@ through an API.
 ## Why markdown files
 
 The point of the format is that *nothing* needs yatta to be running. An agent
-can add a task with a single `echo`. You can grep your backlog. You can commit
-it, sync it with Nextcloud, or open it on a machine that has never heard of
-this app.
+can add a task with a single `echo`, or ask the app for typed tools instead
+with `yatta --mcp`. You can grep your backlog. You can commit it, sync it with
+Nextcloud, or open it on a machine that has never heard of this app.
 
 ```markdown
 ---

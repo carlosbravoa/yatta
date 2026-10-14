@@ -138,10 +138,14 @@ backwards is worse than having neither.
 
 ### Hand a task to an AI agent
 
-The seam exists: the detail panel composes a full prompt (title, metadata,
-absolute file path, and an instruction to set `status: done` when finished) and
-copies it to the clipboard. The remaining work is choosing what to actually
-invoke and how to surface progress and results on the task.
+Half of this landed in 0.9.0: `yatta --mcp` serves the vault to any MCP client,
+so an agent that is already running can list, add, update and complete tasks
+through typed tools instead of writing files blind. The seam on the app's side
+also exists: the detail panel composes a full prompt (title, metadata, absolute
+file path, and an instruction to set `status: done` when finished) and copies it
+to the clipboard. The remaining work is the push direction — a button on the
+task that invokes an agent with that prompt, and a way to surface its progress
+and results back on the task.
 
 ### Recurring tasks
 

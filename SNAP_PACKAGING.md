@@ -139,6 +139,34 @@ sudo snap install snappy-debug
 sudo snappy-debug
 ```
 
+### The MCP mode
+
+`/snap/bin/yatta --mcp` is the same binary serving the vault to an agent over
+stdio, and it runs confined like the window does. Three things follow:
+
+- **It finds the same settings file.** Inside the sandbox HOME is
+  `~/snap/yatta/current`, so the server reads
+  `~/snap/yatta/current/.config/com.yatta.app/settings.json` — the file the
+  windowed snap writes. The vault path in it is absolute, and `home` covers it.
+- **The launch wrapper keeps stdout clean.** The protocol is newline-delimited
+  JSON on stdout, so anything the GNOME extension's `command-chain` printed
+  there would corrupt it. The wrapper scripts only write to stdout on fatal
+  paths that exit at once (no snap context, content snap not connected); a
+  normal start prints nothing. Verified on 0.8.1 revision 25.
+- **No network is involved.** stdio only, so the `network` interface plays no
+  part in it.
+
+The one-line check, which should print exactly one line of JSON and nothing
+else on stdout:
+
+```bash
+echo '{"jsonrpc":"2.0","id":1,"method":"ping"}' | /snap/bin/yatta --mcp
+```
+
+The path to register with an agent is `/snap/bin/yatta`, which survives
+refreshes; the app's Settings → *AI agents* already shows it that way, because
+`mcp::command()` prefers the `/snap/bin` wrapper whenever `SNAP_NAME` is set.
+
 ## Interface connections
 
 Nine of the eleven interfaces auto-connect. Two do not:
@@ -167,7 +195,7 @@ snap connections yatta
 | `gsettings` | yes | Follows the desktop light/dark theme preference |
 | `unity7` | yes | AppIndicator tray icon |
 | `home` | yes | The vault — the app's entire data store |
-| `network` | yes | WebKitGTK's network process; git sync; future agent integration |
+| `network` | yes | WebKitGTK's network process; git sync. The MCP server is stdio-only and does not use it |
 | `removable-media` | **no** | Only if the vault lives on an external drive |
 | `ssh-keys` | **no** | Only for git sync over an SSH remote — `~/.ssh` is hidden, so `home` does not cover it |
 

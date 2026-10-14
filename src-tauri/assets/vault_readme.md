@@ -52,6 +52,13 @@ you know.
 
 To complete a task, set `status: done`. To reschedule one, change `due`.
 
+An agent that would rather have tools than files can run the app itself as an
+MCP server: `yatta --mcp` serves this folder over stdio, with tools to list,
+add, update, complete and archive tasks, and writes exactly the files the app
+would. Settings → *AI agents* in the app shows the one-line setup for Claude
+Code and the config block for other clients. Both routes work at the same time;
+the files are the source of truth either way.
+
 ## Conventions worth knowing
 
 - **Filenames are stable.** The app names a file once, from the title, and then

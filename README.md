@@ -1,5 +1,7 @@
 # yatta
 
+[![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/yatta)
+
 **Yet Another Text-based TODO App.**
 Also 「やった」: *"did it!"* — which is the part that matters.
 

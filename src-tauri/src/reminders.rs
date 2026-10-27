@@ -68,8 +68,23 @@ fn tick(app: &AppHandle) {
     mark_fired(app, &state, &key);
 
     if let Some((title, body)) = summarize(&root) {
-        let _ = app.notification().builder().title(title).body(body).show();
+        notify(app, &title, &body);
     }
+}
+
+/// Left to itself the plugin names the icon after the executable ("yatta"),
+/// which the deb installs into hicolor but the snap does not: its icon lives
+/// at an absolute path, so GNOME falls back to a generic cog. Point at the file.
+///
+/// No desktop-entry hint: GNOME already knows a snap's app from the sender,
+/// and it drops a notification whose hint names a snap's desktop file when the
+/// sender is not that snap.
+fn notify(app: &AppHandle, title: &str, body: &str) {
+    let mut builder = app.notification().builder().title(title).body(body);
+    if let Ok(snap) = std::env::var("SNAP") {
+        builder = builder.icon(format!("{snap}/meta/gui/yatta.png"));
+    }
+    let _ = builder.show();
 }
 
 fn parse_time(raw: &str) -> Option<NaiveTime> {

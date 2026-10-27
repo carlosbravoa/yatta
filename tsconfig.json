@@ -11,7 +11,8 @@
     "skipLibCheck": true,
     "verbatimModuleSyntax": true,
     "allowJs": true,
-    "checkJs": true
+    "checkJs": true,
+    "types": ["vite/client"]
   },
   "include": ["src/**/*.ts", "src/**/*.svelte", "vite.config.ts"]
 }

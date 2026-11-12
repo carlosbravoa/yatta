@@ -1,0 +1,9 @@
+{
+  "name": "yatta",
+  "description": "Manage a yatta todo vault (a folder of markdown tasks) from Claude: list, add, update, complete and archive tasks.",
+  "author": { "name": "carlosbravoa" },
+  "homepage": "https://github.com/carlosbravoa/yatta",
+  "repository": "https://github.com/carlosbravoa/yatta",
+  "license": "MIT",
+  "keywords": ["todo", "tasks", "markdown", "yatta"]
+}

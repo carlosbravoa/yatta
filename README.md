@@ -248,6 +248,31 @@ addressed by `id` or by vault-relative path, both of which every result
 carries. The server is the same `task.rs` and `vault.rs` the window uses, so a
 file written through it is exactly what the app would have written.
 
+### As a Claude skill
+
+If you'd rather not run a server, the repo also ships a `yatta`
+[skill](https://docs.claude.com/en/docs/claude-code/skills). It covers the
+same operations as the MCP tools: list, add, update, complete, archive and
+restore. It works through a small standard-library Python script that follows
+the app's rules for ids, filenames, frontmatter and atomic writes. It finds the
+vault the same way `--mcp` does, and needs only `python3`, not the app.
+
+**Claude Code.** The repo is a plugin marketplace:
+
+```bash
+/plugin install yatta --marketplace carlosbravoa/yatta
+```
+
+On older versions, run `/plugin marketplace add carlosbravoa/yatta` first and
+then `/plugin install yatta@yatta`.
+
+**Any other agent that reads skills.** Copy the folder
+[`plugin/skills/yatta`](plugin/skills/yatta) into its skills directory, for
+example `~/.claude/skills/yatta`.
+
+The skill tells the agent to prefer the MCP tools when both are available, so
+installing both does no harm.
+
 ## How archiving works
 
 Archiving is a **file move**, never a delete. `Archive N completed` (in the
@@ -291,6 +316,8 @@ src-tauri/src/
   merge.rs              how two devices' versions of a task become one
   mcp.rs                `yatta --mcp`: the vault as an MCP server over stdio
   tray.rs               optional tray + hotkey (feature-gated)
+plugin/skills/yatta/    the Claude skill; scripts/yatta.py ports task.rs + vault.rs
+.claude-plugin/         marketplace manifest, so the repo installs as a plugin
 ```
 
 ## Where your tasks live

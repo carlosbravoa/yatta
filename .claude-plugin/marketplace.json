@@ -1,0 +1,11 @@
+{
+  "name": "yatta",
+  "owner": { "name": "carlosbravoa" },
+  "plugins": [
+    {
+      "name": "yatta",
+      "source": "./plugin",
+      "description": "Manage a yatta todo vault (a folder of markdown tasks) from Claude: list, add, update, complete and archive tasks."
+    }
+  ]
+}
